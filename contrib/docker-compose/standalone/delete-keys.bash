@@ -9,7 +9,7 @@ if [[ ! ${1:-} ]]; then
 Usage: $0 FINGERPRINT [FINGERPRINT ...]
        $0 -f FINGERPRINT_FILE
 
-If FINGERPRINT_FILE is given, it should contain one fingerprint per line, folded to lowercase. 
+If FINGERPRINT_FILE is given, it should contain one fingerprint per line.
 If FINGERPRINT_FILE is '-', fingerprints are read from STDIN.
 EOF
     exit 1
@@ -58,9 +58,9 @@ if [[ $1 == "-f" ]]; then
     $SQLCMD -c '\copy bad_fps from stdin csv' < "$2"
   fi
   $SQLCMD -c '
-    delete from subkeys k using bad_fps b where k.rfingerprint = reverse(b.fingerprint);
+    delete from subkeys k using bad_fps b where k.rfingerprint = lower(reverse(b.fingerprint));
     alter table subkeys drop constraint subkeys_rfingerprint_fkey;
-    delete from    keys k using bad_fps b where k.rfingerprint = reverse(b.fingerprint);
+    delete from    keys k using bad_fps b where k.rfingerprint = lower(reverse(b.fingerprint));
     alter table subkeys add foreign key (rfingerprint) references keys(rfingerprint);
     drop table bad_fps;
   '
