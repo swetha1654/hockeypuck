@@ -77,7 +77,7 @@ func (s *ResolveSuite) TestUserIDSigInfo(c *gc.C) {
 	key := MustInputAscKey("lp1195901.asc")
 	Sort(key)
 	// Primary UID
-	c.Assert(key.UserIDs[0].Keywords, gc.Equals, "Phil Pennock <pdp@exim.org>")
+	c.Assert(key.UserIDs[0].Keywords, gc.Equals, "Phil Pennock <phil.pennock@spodhuis.org>")
 	for _, uid := range key.UserIDs {
 		if uid.Keywords == "pdp@spodhuis.demon.nl" {
 			ss, _ := uid.SigInfo(key)
@@ -96,9 +96,9 @@ func (s *ResolveSuite) TestSortUserIDs(c *gc.C) {
 	key := MustInputAscKey("lp1195901.asc")
 	Sort(key)
 	expect := []string{
-		"Phil Pennock <pdp@exim.org>",
 		"Phil Pennock <phil.pennock@spodhuis.org>",
 		"Phil Pennock <phil.pennock@globnix.org>",
+		"Phil Pennock <pdp@exim.org>",
 		"Phil Pennock <pdp@spodhuis.org>",
 		"Phil Pennock <pdp@spodhuis.demon.nl>"}
 	for i := range key.UserIDs {

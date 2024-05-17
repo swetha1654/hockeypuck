@@ -326,23 +326,43 @@ func (pubkey *PrimaryKey) SigInfo() (*SelfSigs, []*Signature) {
 	return selfSigs, otherSigs
 }
 
-// RedactingSignature returns the most recent redacting sig, if one exists.
+// RedactingSignature returns the most relevant redacting sig, if one exists.
 // Redacting signatures are direct-key revocations with the reasons nil, "no reason", "key compromised",
 // and (TO BE IMPLEMENTED, #294) "user ID no longer valid".
+// Any hard revocation is returned. It doesn't matter which, all hard revocations are equivalent.
+// Otherwise (TO BE IMPLEMENTED) the most recent redacting sig is returned.
 func (pubkey *PrimaryKey) RedactingSignature() (*Signature, error) {
 	var revoc *Signature
 	selfSigs, _ := pubkey.SigInfo()
 	for _, checkSig := range selfSigs.Revocations {
-		// Find the most recent redacting signature. Don't assume the sigs are sorted.
 		reason := checkSig.Signature.RevocationReason
 		if reason == nil || *reason == packet.KeyCompromised || *reason == packet.NoReason {
-			date := checkSig.Signature.Creation
-			if revoc == nil || revoc.Creation.Before(date) {
-				revoc = checkSig.Signature
+			return checkSig.Signature, nil
+		}
+		// else if revoc == nil && *reason == packet.UIDNoLongerValid {
+		//	revoc = checkSig.Signature
+		//}
+	}
+	return revoc, nil
+}
+
+// PrimaryUserIDSig returns the most recent signature on the currently-active primary UserID, if one exists.
+// In V4 keys, this signature contains the default metadata for the primary key.
+func (pubkey *PrimaryKey) PrimaryUserIDSig() (*Signature, error) {
+	var primarySig *Signature
+	for _, userID := range pubkey.UserIDs {
+		selfSigs, _ := userID.SigInfo(pubkey)
+		if len(selfSigs.Certifications) > 0 {
+			checkSig := selfSigs.Certifications[0]
+			if checkSig.Signature.Primary {
+				date := checkSig.Signature.Creation
+				if primarySig == nil || primarySig.Creation.Before(date) {
+					primarySig = checkSig.Signature
+				}
 			}
 		}
 	}
-	return revoc, nil
+	return primarySig, nil
 }
 
 func (pubkey *PrimaryKey) updateMD5() error {

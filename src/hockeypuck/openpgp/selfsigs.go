@@ -36,7 +36,6 @@ type CheckSig struct {
 type SelfSigs struct {
 	Revocations    []*CheckSig
 	Certifications []*CheckSig
-	Expirations    []*CheckSig
 	Primaries      []*CheckSig
 	Errors         []*CheckSig
 
@@ -83,7 +82,6 @@ func (s *SelfSigs) resolve() {
 	// Sort signatures
 	sort.Sort(checkSigCreationAsc(s.Revocations))
 	sort.Sort(checkSigCreationDesc(s.Certifications))
-	sort.Sort(checkSigExpirationDesc(s.Expirations))
 	sort.Sort(checkSigCreationDesc(s.Primaries))
 }
 
@@ -97,8 +95,18 @@ func (s *SelfSigs) RevokedSince() (time.Time, bool) {
 }
 
 func (s *SelfSigs) ExpiresAt() (time.Time, bool) {
-	if len(s.Expirations) > 0 {
-		return s.Expirations[0].Signature.Expiration, true
+	if len(s.Certifications) > 0 {
+		expiration := s.Certifications[0].Signature.Expiration
+		if expiration.IsZero() {
+			return zeroTime, false
+		}
+		return expiration, true
+	}
+	if pubkey, ok := s.target.(*PrimaryKey); ok {
+		primaryUserIDSig, _ := pubkey.PrimaryUserIDSig()
+		if primaryUserIDSig != nil && !primaryUserIDSig.Expiration.IsZero() {
+			return primaryUserIDSig.Expiration, true
+		}
 	}
 	return zeroTime, false
 }
@@ -131,6 +139,7 @@ func (s *SelfSigs) ValidSince() (time.Time, bool) {
 	return zeroTime, false
 }
 
+// The date of the most recent unexpired signature that marked this UID as primary, or zero.
 func (s *SelfSigs) PrimarySince() (time.Time, bool) {
 	if len(s.Revocations) > 0 {
 		return zeroTime, false
