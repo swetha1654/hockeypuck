@@ -131,9 +131,13 @@ func (sig *Signature) setSignature(s *packet.Signature, keyCreationTime time.Tim
 	if s.SigLifetimeSecs != nil {
 		sig.Expiration = s.CreationTime.Add(
 			time.Duration(*s.SigLifetimeSecs) * time.Second)
-	} else if s.KeyLifetimeSecs != nil {
-		sig.Expiration = keyCreationTime.Add(
+	}
+	if s.KeyLifetimeSecs != nil {
+		keyExpiration := keyCreationTime.Add(
 			time.Duration(*s.KeyLifetimeSecs) * time.Second)
+		if sig.Expiration.IsZero() || keyExpiration.Before(sig.Expiration) {
+			sig.Expiration = keyExpiration
+		}
 	}
 
 	// Primary indicator

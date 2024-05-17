@@ -113,10 +113,15 @@ func (s *ResolveSuite) TestKeyExpiration(c *gc.C) {
 	Sort(key)
 
 	c.Assert(key.SubKeys, gc.HasLen, 7)
+	// Unexpired subkeys sort most recently certified first
 	c.Assert(key.SubKeys[0].UUID, gc.Equals, "6c949d8098859e7816e6b33d54d50118a1b8dfc9")
 	c.Assert(key.SubKeys[1].UUID, gc.Equals, "3745e9590264de539613d833ad83b9366e3d6be3")
+	// Expired subkeys sort earliest creation date first
 	c.Assert(key.SubKeys[2].UUID, gc.Equals, "d8f5df37774835db9035533c5e42d67d9db4afd4")
 	c.Assert(key.SubKeys[3].UUID, gc.Equals, "b416d58b79836874f1bae9cec6d402ff30597109")
+	c.Assert(key.SubKeys[4].UUID, gc.Equals, "6b8a881c42c813815f34bf81a498cedffe21a4a2")
+	c.Assert(key.SubKeys[5].UUID, gc.Equals, "2aea45f4e7cf9b393aba46f26fbf8473d933778b")
+	c.Assert(key.SubKeys[6].UUID, gc.Equals, "16f14b12bfa1a3ce9f9930819ec2f82dda9984b2")
 }
 
 // TestUnsuppIgnored tests parsing key material containing
