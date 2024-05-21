@@ -1,6 +1,6 @@
 module hockeypuck
 
-go 1.18
+go 1.20
 
 require (
 	github.com/BurntSushi/toml v1.3.2
@@ -19,6 +19,7 @@ require (
 	github.com/stvp/go-udp-testing v0.0.0-20171104055251-c4434f09ec13
 	github.com/syndtr/goleveldb v0.0.0-20200815110645-5c35d600f0ca
 	github.com/tobi/airbrake-go v0.0.0-20151005181455-a3cdd910a3ff
+	golang.org/x/exp v0.0.0-20231127185646-65229373498e
 	gopkg.in/basen.v1 v1.0.0-20150613233243-308119dd1d4c
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c
 	gopkg.in/tomb.v2 v2.0.0-20161208151619-d5d1b5820637
@@ -68,4 +69,4 @@ require (
 	launchpad.net/gocheck v0.0.0-20140225173054-000000000087 // indirect
 )
 
-replace github.com/ProtonMail/go-crypto => github.com/pgpkeys-eu/go-crypto v0.0.0-20231113163531-537cdfbde19d
+replace github.com/ProtonMail/go-crypto => github.com/pgpkeys-eu/go-crypto v0.0.0-20231210185516-c9ab62b0da74

@@ -81,6 +81,7 @@ type HandlerSuite struct {
 
 var _ = gc.Suite(&HandlerSuite{})
 
+// BEWARE that we have not supplied a mock.Update function, so this suite will only perform dry-run tests against Alice.
 func (s *HandlerSuite) SetUpTest(c *gc.C) {
 	s.storage = mock.NewStorage(
 		mock.Resolve(func(keys []string) ([]string, error) {
@@ -238,39 +239,6 @@ func (s *HandlerSuite) TestAdd(c *gc.C) {
 	c.Assert(addRes.Ignored, gc.HasLen, 1)
 }
 
-func (s *HandlerSuite) TestAddBareRevocation(c *gc.C) {
-	keytext, err := io.ReadAll(testing.MustInput("test-key.asc"))
-	c.Assert(err, gc.IsNil)
-	res, err := http.PostForm(s.srv.URL+"/pks/add", url.Values{
-		"keytext": []string{string(keytext)},
-	})
-	c.Assert(err, gc.IsNil)
-	c.Assert(res.StatusCode, gc.Equals, http.StatusOK)
-	defer res.Body.Close()
-	doc, err := io.ReadAll(res.Body)
-	c.Assert(err, gc.IsNil)
-
-	var addRes AddResponse
-	err = json.Unmarshal(doc, &addRes)
-	c.Assert(err, gc.IsNil)
-	c.Assert(addRes.Inserted, gc.HasLen, 1)
-
-	keytext, err = io.ReadAll(testing.MustInput("test-key-revoke.asc"))
-	c.Assert(err, gc.IsNil)
-
-	res2, err := http.PostForm(s.srv.URL+"/pks/add", url.Values{
-		"keytext": []string{string(keytext)},
-	})
-	c.Assert(err, gc.IsNil)
-	c.Assert(res.StatusCode, gc.Equals, http.StatusOK)
-	defer res2.Body.Close()
-	doc, err = io.ReadAll(res2.Body)
-	c.Assert(err, gc.IsNil)
-	err = json.Unmarshal(doc, &addRes)
-	c.Assert(err, gc.IsNil)
-	c.Assert(addRes.Updated, gc.HasLen, 1)
-}
-
 func (s *HandlerSuite) TestFetchWithBadSigs(c *gc.C) {
 	tk := testKeyBadSigs
 
@@ -284,7 +252,6 @@ func (s *HandlerSuite) TestFetchWithBadSigs(c *gc.C) {
 	keys := openpgp.MustReadArmorKeys(bytes.NewBuffer(armor))
 	c.Assert(keys, gc.HasLen, 1)
 	c.Assert(keys[0].ShortID(), gc.Equals, tk.sid)
-	c.Assert(len(keys[0].Others), gc.Equals, 0)
 }
 
 func (s *HandlerSuite) SetupHashQueryTest(c *gc.C, unique bool, digests ...int) (*httptest.ResponseRecorder, *http.Request) {

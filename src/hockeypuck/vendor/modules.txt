@@ -11,7 +11,7 @@ github.com/Masterminds/semver
 # github.com/Masterminds/sprig v2.22.0+incompatible
 ## explicit
 github.com/Masterminds/sprig
-# github.com/ProtonMail/go-crypto v0.0.0-20230923063757-afb1ddc0824c => github.com/pgpkeys-eu/go-crypto v0.0.0-20231113163531-537cdfbde19d
+# github.com/ProtonMail/go-crypto v0.0.0-20230923063757-afb1ddc0824c => github.com/pgpkeys-eu/go-crypto v0.0.0-20231210185516-c9ab62b0da74
 ## explicit; go 1.13
 github.com/ProtonMail/go-crypto/bitcurves
 github.com/ProtonMail/go-crypto/brainpool
@@ -201,6 +201,10 @@ golang.org/x/crypto/hkdf
 golang.org/x/crypto/pbkdf2
 golang.org/x/crypto/scrypt
 golang.org/x/crypto/sha3
+# golang.org/x/exp v0.0.0-20231127185646-65229373498e
+## explicit; go 1.20
+golang.org/x/exp/constraints
+golang.org/x/exp/slices
 # golang.org/x/net v0.18.0
 ## explicit; go 1.18
 golang.org/x/net/context
@@ -251,4 +255,4 @@ gopkg.in/tomb.v2
 gopkg.in/yaml.v3
 # launchpad.net/gocheck v0.0.0-20140225173054-000000000087
 ## explicit
-# github.com/ProtonMail/go-crypto => github.com/pgpkeys-eu/go-crypto v0.0.0-20231113163531-537cdfbde19d
+# github.com/ProtonMail/go-crypto => github.com/pgpkeys-eu/go-crypto v0.0.0-20231210185516-c9ab62b0da74
