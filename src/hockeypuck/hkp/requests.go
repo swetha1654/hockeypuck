@@ -186,7 +186,7 @@ func ParseReplace(req *http.Request) (*Replace, error) {
 	if replace.Keysig == "" {
 		return nil, errors.Errorf("missing required parameter: keysig")
 	}
-	if !strings.HasPrefix(replace.Keytext, "/pks/replace\n") {
+	if !strings.HasPrefix(replace.Keytext, "/pks/replace\n") && !strings.HasPrefix(replace.Keytext, "/pks/replace\r") {
 		return nil, errors.Errorf("first line of keytext must be '/pks/replace'")
 	}
 
@@ -218,7 +218,7 @@ func ParseDelete(req *http.Request) (*Delete, error) {
 	if del.Keysig == "" {
 		return nil, errors.Errorf("missing required parameter: keysig")
 	}
-	if !strings.HasPrefix(del.Keytext, "/pks/delete\n") {
+	if !strings.HasPrefix(del.Keytext, "/pks/delete\n") && !strings.HasPrefix(del.Keytext, "/pks/delete\r") {
 		return nil, errors.Errorf("first line of keytext must be '/pks/delete'")
 	}
 
