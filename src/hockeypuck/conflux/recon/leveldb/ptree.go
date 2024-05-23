@@ -38,7 +38,7 @@ import (
 
 	cf "hockeypuck/conflux"
 	"hockeypuck/conflux/recon"
-	log "hockeypuck/logrus"
+	log "github.com/sirupsen/logrus"
 )
 
 type prefixTree struct {

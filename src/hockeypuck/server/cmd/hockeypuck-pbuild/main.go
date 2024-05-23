@@ -13,7 +13,7 @@ import (
 	cf "hockeypuck/conflux"
 	"hockeypuck/hkp/sks"
 	"hockeypuck/hkp/storage"
-	log "hockeypuck/logrus"
+	log "github.com/sirupsen/logrus"
 	"hockeypuck/server"
 	"hockeypuck/server/cmd"
 )

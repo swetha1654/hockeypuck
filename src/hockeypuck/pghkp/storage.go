@@ -35,7 +35,7 @@ import (
 
 	"hockeypuck/hkp/jsonhkp"
 	hkpstorage "hockeypuck/hkp/storage"
-	log "hockeypuck/logrus"
+	log "github.com/sirupsen/logrus"
 	"hockeypuck/openpgp"
 )
 
