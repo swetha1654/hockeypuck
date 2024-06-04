@@ -32,11 +32,11 @@ import (
 	"github.com/pkg/errors"
 	"gopkg.in/tomb.v2"
 
+	log "github.com/sirupsen/logrus"
 	cf "hockeypuck/conflux"
 	"hockeypuck/conflux/recon"
 	"hockeypuck/conflux/recon/leveldb"
 	"hockeypuck/hkp/storage"
-	log "github.com/sirupsen/logrus"
 	"hockeypuck/openpgp"
 )
 
