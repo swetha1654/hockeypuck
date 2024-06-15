@@ -350,11 +350,16 @@ func (pubkey *PrimaryKey) RedactingSignature() (*Signature, error) {
 // In V4 keys, this signature contains the default metadata for the primary key.
 func (pubkey *PrimaryKey) PrimaryUserIDSig() (*Signature, error) {
 	var primarySig *Signature
+	var loneUserID = false
+	if len(pubkey.UserIDs) == 1 {
+		// If there is only one UserID then it is the primary by default
+		loneUserID = true
+	}
 	for _, userID := range pubkey.UserIDs {
 		selfSigs, _ := userID.SigInfo(pubkey)
 		if len(selfSigs.Certifications) > 0 {
 			checkSig := selfSigs.Certifications[0]
-			if checkSig.Signature.Primary {
+			if loneUserID || checkSig.Signature.Primary {
 				date := checkSig.Signature.Creation
 				if primarySig == nil || primarySig.Creation.Before(date) {
 					primarySig = checkSig.Signature
