@@ -124,6 +124,25 @@ func (s *ResolveSuite) TestKeyExpiration(c *gc.C) {
 	c.Assert(key.SubKeys[6].UUID, gc.Equals, "16f14b12bfa1a3ce9f9930819ec2f82dda9984b2")
 }
 
+func (s *ResolveSuite) TestRedactingSignature(c *gc.C) {
+	key := MustInputAscKey("test-key-revoked.asc")
+	c.Assert(key.UserIDs, gc.HasLen, 1)
+	sig, err := key.RedactingSignature()
+	c.Assert(err, gc.IsNil)
+	c.Assert(sig.Creation, gc.Equals, time.Unix(1611408186, 0))
+}
+
+func (s *ResolveSuite) TestPrimaryUserIDSig(c *gc.C) {
+	key := MustInputAscKey("gentoo-l1.asc") // The Gentoo key does not mark its UserID as primary
+	c.Assert(key.UserIDs, gc.HasLen, 1)     // ... but it only has one UserID so it is primary by default
+	sig, err := key.PrimaryUserIDSig()
+	c.Assert(err, gc.IsNil)
+	c.Assert(sig.Expiration, gc.Equals, time.Unix(1782907200, 0)) // Check the latest sig directly
+	ss, _ := key.SigInfo()
+	expiry, _ := ss.ExpiresAt()
+	c.Assert(expiry, gc.Equals, time.Unix(1782907200, 0)) // ExpiresAt should give the same result
+}
+
 // TestUnsuppIgnored tests parsing key material containing
 // packets which are not normally part of an exported public key --
 // trust packets, in this case.
