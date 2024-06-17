@@ -56,8 +56,6 @@ lint: lint-go
 
 lint-go:
 	cd $(SRCDIR) && ! go fmt $(project)/... | awk '/./ {print "ERROR: go fmt made unexpected changes:", $$0}' | grep .
-	cd $(SRCDIR) && go mod tidy
-	cd $(SRCDIR) && go mod vendor
 	cd $(SRCDIR) && go vet $(project)/...
 
 test: test-go

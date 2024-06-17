@@ -174,9 +174,6 @@ func (uid *UserID) SigInfo(pubkey *PrimaryKey) (*SelfSigs, []*Signature) {
 			selfSigs.Revocations = append(selfSigs.Revocations, checkSig)
 		case packet.SigTypeGenericCert, packet.SigTypePersonaCert, packet.SigTypeCasualCert, packet.SigTypePositiveCert:
 			selfSigs.Certifications = append(selfSigs.Certifications, checkSig)
-			if !sig.Expiration.IsZero() {
-				selfSigs.Expirations = append(selfSigs.Expirations, checkSig)
-			}
 			if sig.Primary {
 				selfSigs.Primaries = append(selfSigs.Primaries, checkSig)
 			}
