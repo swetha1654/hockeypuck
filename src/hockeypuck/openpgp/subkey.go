@@ -123,9 +123,6 @@ func (subkey *SubKey) SigInfo(pubkey *PrimaryKey) (*SelfSigs, []*Signature) {
 			selfSigs.Revocations = append(selfSigs.Revocations, checkSig)
 		case packet.SigTypeSubkeyBinding:
 			selfSigs.Certifications = append(selfSigs.Certifications, checkSig)
-			if !sig.Expiration.IsZero() {
-				selfSigs.Expirations = append(selfSigs.Expirations, checkSig)
-			}
 		}
 	}
 	selfSigs.resolve()

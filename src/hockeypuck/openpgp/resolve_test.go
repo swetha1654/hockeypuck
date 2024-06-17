@@ -77,7 +77,7 @@ func (s *ResolveSuite) TestUserIDSigInfo(c *gc.C) {
 	key := MustInputAscKey("lp1195901.asc")
 	Sort(key)
 	// Primary UID
-	c.Assert(key.UserIDs[0].Keywords, gc.Equals, "Phil Pennock <pdp@exim.org>")
+	c.Assert(key.UserIDs[0].Keywords, gc.Equals, "Phil Pennock <phil.pennock@spodhuis.org>")
 	for _, uid := range key.UserIDs {
 		if uid.Keywords == "pdp@spodhuis.demon.nl" {
 			ss, _ := uid.SigInfo(key)
@@ -96,9 +96,9 @@ func (s *ResolveSuite) TestSortUserIDs(c *gc.C) {
 	key := MustInputAscKey("lp1195901.asc")
 	Sort(key)
 	expect := []string{
-		"Phil Pennock <pdp@exim.org>",
 		"Phil Pennock <phil.pennock@spodhuis.org>",
 		"Phil Pennock <phil.pennock@globnix.org>",
+		"Phil Pennock <pdp@exim.org>",
 		"Phil Pennock <pdp@spodhuis.org>",
 		"Phil Pennock <pdp@spodhuis.demon.nl>"}
 	for i := range key.UserIDs {
@@ -113,10 +113,34 @@ func (s *ResolveSuite) TestKeyExpiration(c *gc.C) {
 	Sort(key)
 
 	c.Assert(key.SubKeys, gc.HasLen, 7)
+	// Unexpired subkeys sort most recently certified first
 	c.Assert(key.SubKeys[0].UUID, gc.Equals, "6c949d8098859e7816e6b33d54d50118a1b8dfc9")
 	c.Assert(key.SubKeys[1].UUID, gc.Equals, "3745e9590264de539613d833ad83b9366e3d6be3")
+	// Expired subkeys sort earliest creation date first
 	c.Assert(key.SubKeys[2].UUID, gc.Equals, "d8f5df37774835db9035533c5e42d67d9db4afd4")
 	c.Assert(key.SubKeys[3].UUID, gc.Equals, "b416d58b79836874f1bae9cec6d402ff30597109")
+	c.Assert(key.SubKeys[4].UUID, gc.Equals, "6b8a881c42c813815f34bf81a498cedffe21a4a2")
+	c.Assert(key.SubKeys[5].UUID, gc.Equals, "2aea45f4e7cf9b393aba46f26fbf8473d933778b")
+	c.Assert(key.SubKeys[6].UUID, gc.Equals, "16f14b12bfa1a3ce9f9930819ec2f82dda9984b2")
+}
+
+func (s *ResolveSuite) TestRedactingSignature(c *gc.C) {
+	key := MustInputAscKey("test-key-revoked.asc")
+	c.Assert(key.UserIDs, gc.HasLen, 1)
+	sig, err := key.RedactingSignature()
+	c.Assert(err, gc.IsNil)
+	c.Assert(sig.Creation, gc.Equals, time.Unix(1611408186, 0))
+}
+
+func (s *ResolveSuite) TestPrimaryUserIDSig(c *gc.C) {
+	key := MustInputAscKey("gentoo-l1.asc") // The Gentoo key does not mark its UserID as primary
+	c.Assert(key.UserIDs, gc.HasLen, 1)     // ... but it only has one UserID so it is primary by default
+	sig, err := key.PrimaryUserIDSig()
+	c.Assert(err, gc.IsNil)
+	c.Assert(sig.Expiration, gc.Equals, time.Unix(1782907200, 0)) // Check the latest sig directly
+	ss, _ := key.SigInfo()
+	expiry, _ := ss.ExpiresAt()
+	c.Assert(expiry, gc.Equals, time.Unix(1782907200, 0)) // ExpiresAt should give the same result
 }
 
 // TestUnsuppIgnored tests parsing key material containing

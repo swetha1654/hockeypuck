@@ -59,14 +59,22 @@ var (
 		sid:  "01aa4a64",
 		file: "a7400f5a_badsigs.asc",
 	}
+	testKeyGentoo = &testKey{
+		fp:   "abd00913019d6354ba1d9a132839fe0d796198b1",
+		rfp:  "1b891697d0ef938231a9d1ab4536d91031900dba",
+		sid:  "796198b1",
+		file: "gentoo-l1.asc",
+	}
 
 	testKeys = map[string]*testKey{
 		testKeyDefault.fp: testKeyDefault,
 		testKeyBadSigs.fp: testKeyBadSigs,
+		testKeyGentoo.fp:  testKeyGentoo,
 	}
 	testKeysRFP = map[string]*testKey{
 		testKeyDefault.rfp: testKeyDefault,
 		testKeyBadSigs.rfp: testKeyBadSigs,
+		testKeyGentoo.rfp:  testKeyGentoo,
 	}
 )
 
@@ -200,6 +208,22 @@ func (s *HandlerSuite) TestIndexAliceMR(c *gc.C) {
 	c.Assert(string(doc), gc.Equals, `info:1:1
 pub:10FE8CF1B483F7525039AA2A361BC1F023E0DCCA:1:2048:1345589945::
 uid:alice <alice@example.com>:1345589945::
+`)
+}
+
+func (s *HandlerSuite) TestIndexKeyExpiryMR(c *gc.C) {
+	tk := testKeyGentoo
+
+	res, err := http.Get(fmt.Sprintf("%s/pks/lookup?op=vindex&options=mr&search=0x"+tk.fp, s.srv.URL))
+	c.Assert(err, gc.IsNil)
+	doc, err := io.ReadAll(res.Body)
+	res.Body.Close()
+	c.Assert(err, gc.IsNil)
+	c.Assert(res.StatusCode, gc.Equals, http.StatusOK)
+
+	c.Assert(string(doc), gc.Equals, `info:1:1
+pub:ABD00913019D6354BA1D9A132839FE0D796198B1:1:2048:1554117635:1782907200:
+uid:Gentoo Authority Key L1 <openpgp-auth+l1@gentoo.org>:1713678916:1782907200:
 `)
 }
 
