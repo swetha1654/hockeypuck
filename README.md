@@ -15,7 +15,7 @@ The current release branch is 2.2
 A quick and easy way to run Hockeypuck locally is with `docker-compose`.
 First, obtain a keydump from an existing server.
 A partial list of dump sources can be found in `contrib/data-sources.md`.
-Unpack the `*.gpg` files from the dump under `contrib/docker-compose/devel/keydump/`, then:
+Unpack the `*.pgp` files from the dump under `contrib/docker-compose/devel/keydump/`, then:
 
     cd contrib/docker-compose/devel
     docker-compose up -d
