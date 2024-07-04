@@ -69,7 +69,7 @@ func (s *S) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	s.storage = st.(*storage)
 
-	testAdminKeys := hkp.AdminKeys([]string{"0xAEE0851B4979BACC81DC05DB3ED546F6B54D5ED3"})
+	testAdminKeys := hkp.AdminKeys([]string{"0x5B74AE43F908323506BD2DFD31EDE6D1DF9E2BAF"})
 	r := httprouter.New()
 	handler, err := hkp.NewHandler(s.storage, testAdminKeys)
 	c.Assert(err, gc.IsNil)
@@ -471,7 +471,7 @@ func (s *S) TestReplaceWithAdminSig(c *gc.C) {
 
 	s.assertKey(c, "0xB3836BA47C8CFE0CEBD000CBF30F9BABFDD1F1EC", "somename", true)
 	s.assertKey(c, "0xB3836BA47C8CFE0CEBD000CBF30F9BABFDD1F1EC", "forgetme", true)
-	s.assertKey(c, "0xAEE0851B4979BACC81DC05DB3ED546F6B54D5ED3", "admin", true)
+	s.assertKey(c, "0x5B74AE43F908323506BD2DFD31EDE6D1DF9E2BAF", "admin", true)
 
 	keytext, err := io.ReadAll(testing.MustInput("replace.asc"))
 	c.Assert(err, gc.IsNil)
@@ -489,7 +489,7 @@ func (s *S) TestReplaceWithAdminSig(c *gc.C) {
 
 	s.assertKey(c, "0xB3836BA47C8CFE0CEBD000CBF30F9BABFDD1F1EC", "somename", true)
 	s.assertKey(c, "0xB3836BA47C8CFE0CEBD000CBF30F9BABFDD1F1EC", "forgetme", false)
-	s.assertKey(c, "0xAEE0851B4979BACC81DC05DB3ED546F6B54D5ED3", "admin", true)
+	s.assertKey(c, "0x5B74AE43F908323506BD2DFD31EDE6D1DF9E2BAF", "admin", true)
 }
 
 func (s *S) TestDeleteWithAdminSig(c *gc.C) {
@@ -502,7 +502,7 @@ func (s *S) TestDeleteWithAdminSig(c *gc.C) {
 
 	s.assertKey(c, "0xB3836BA47C8CFE0CEBD000CBF30F9BABFDD1F1EC", "somename", true)
 	s.assertKey(c, "0xB3836BA47C8CFE0CEBD000CBF30F9BABFDD1F1EC", "forgetme", true)
-	s.assertKey(c, "0xAEE0851B4979BACC81DC05DB3ED546F6B54D5ED3", "admin", true)
+	s.assertKey(c, "0x5B74AE43F908323506BD2DFD31EDE6D1DF9E2BAF", "admin", true)
 
 	keytext, err := io.ReadAll(testing.MustInput("delete.asc"))
 	c.Assert(err, gc.IsNil)
@@ -519,7 +519,7 @@ func (s *S) TestDeleteWithAdminSig(c *gc.C) {
 	defer res.Body.Close()
 
 	s.assertKeyNotFound(c, "0xB3836BA47C8CFE0CEBD000CBF30F9BABFDD1F1EC")
-	s.assertKey(c, "0xAEE0851B4979BACC81DC05DB3ED546F6B54D5ED3", "admin", true)
+	s.assertKey(c, "0x5B74AE43F908323506BD2DFD31EDE6D1DF9E2BAF", "admin", true)
 }
 
 func (s *S) TestAddBareRevocation(c *gc.C) {
