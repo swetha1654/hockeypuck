@@ -23,6 +23,16 @@ Unpack the `*.pgp` files from the dump under `contrib/docker-compose/devel/keydu
 You can change the configuration by editing `contrib/docker-compose/devel/etc/hockeypuck.conf` and running `docker-compose restart`.
 To stop, run `docker-compose down`.
 
+## Building docker on Windows
+
+BEWARE that if you are building a docker image on Windows, you MUST clone this repository with `autocrlf` disabled:
+
+```
+git clone --config core.autocrlf=false https://github.com/hockeypuck/hockeypuck
+```
+
+See https://stackoverflow.com/questions/53165471/building-docker-images-on-windows-entrypoint-script-no-such-file-or-directory
+
 # Production deployment with docker-compose (RECOMMENDED for most users)
 
 You can use `docker-compose` to build and deploy a standalone Hockeypuck instance in a production environment.

@@ -10,10 +10,20 @@ NB: all the below assume that you have `cd`-ed into this directory first.
 
 # Supported platforms
 
-Tested on Ubuntu 22.04 and Debian 11 (bullseye), with dependencies installed using `./setup.bash`.
+Tested on Ubuntu 22.04 and Debian 12 (bookworm), with dependencies installed using `./setup.bash`.
 
 Other platforms may work but will require some customization.
 At minimum, docker (v18.06+) and docker-compose (v1.22+) must be installed in advance.
+
+## Building docker on Windows
+
+BEWARE that if you are building a docker image on Windows, you MUST clone this repository with `autocrlf` disabled:
+
+```
+git clone --config core.autocrlf=false https://github.com/hockeypuck/hockeypuck
+```
+
+See https://stackoverflow.com/questions/53165471/building-docker-images-on-windows-entrypoint-script-no-such-file-or-directory
 
 # Migration of legacy nginx deployments (!BREAKING CHANGES!)
 
