@@ -42,6 +42,9 @@ func (s *PeerSuite) TestResolveRecoverAddr(c *gc.C) {
 		c.Assert(reconAddr.Port, gc.Equals, 11370)
 		r := &Recover{
 			RemoteAddr: reconAddr,
+			Partner: &Partner{
+				ReconAddr: testHostPort,
+			},
 			RemoteConfig: &Config{
 				HTTPPort: 8080,
 			},

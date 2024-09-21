@@ -44,6 +44,7 @@ var ErrNodeNotFound error = fmt.Errorf("prefix-tree node not found")
 var ErrRemoteRejectedConfig error = fmt.Errorf("remote rejected configuration")
 
 type Recover struct {
+	Partner        *Partner
 	RemoteAddr     net.Addr
 	RemoteConfig   *Config
 	RemoteElements []cf.Zp
@@ -56,9 +57,13 @@ func (r *Recover) String() string {
 
 func (r *Recover) HkpAddr() (string, error) {
 	// Use remote HKP host:port as peer-unique identifier
-	host, _, err := net.SplitHostPort(r.RemoteAddr.String())
+	addr := r.Partner.ReconAddr
+	if r.Partner.HTTPAddr != "" {
+		addr = r.Partner.HTTPAddr
+	}
+	host, _, err := net.SplitHostPort(addr)
 	if err != nil {
-		log.Errorf("cannot parse HKP remote address from %q: %v", r.RemoteAddr, err)
+		log.Errorf("cannot parse HKP remote address from %q: %v", addr, err)
 		return "", errors.WithStack(err)
 	}
 	if strings.Contains(host, ":") {
@@ -318,6 +323,7 @@ func (p *Peer) Serve() error {
 		return ln.Close()
 	})
 
+	var partner *Partner
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
@@ -329,7 +335,7 @@ func (p *Peer) Serve() error {
 			tcConn.SetKeepAlivePeriod(3 * time.Minute)
 
 			remoteAddr := tcConn.RemoteAddr().(*net.TCPAddr)
-			if !matcher.Match(remoteAddr.IP) {
+			if partner = matcher.Match(remoteAddr.IP); partner == nil {
 				log.Warningf("connection rejected from %q", remoteAddr)
 				conn.Close()
 				continue
@@ -342,7 +348,7 @@ func (p *Peer) Serve() error {
 			return nil
 		}
 		p.t.Go(func() error {
-			err = p.Accept(conn)
+			err = p.Accept(conn, partner)
 			start := time.Now()
 			recordReconInitiate(conn.RemoteAddr(), SERVER)
 			if errors.Is(err, ErrPeerBusy) {
@@ -531,7 +537,7 @@ func (p *Peer) handleConfig(conn net.Conn, role string, failResp string) (_ *Con
 	return remoteConfig, nil
 }
 
-func (p *Peer) Accept(conn net.Conn) (_err error) {
+func (p *Peer) Accept(conn net.Conn, partner *Partner) (_err error) {
 	defer conn.Close()
 
 	p.logConn(SERVE, conn).Info("accepted connection")
@@ -554,7 +560,7 @@ func (p *Peer) Accept(conn net.Conn) (_err error) {
 	}
 
 	if failResp == "" {
-		return p.interactWithClient(conn, remoteConfig, cf.NewBitstring(0))
+		return p.interactWithClient(conn, remoteConfig, partner, cf.NewBitstring(0))
 	}
 	return nil
 }
@@ -745,7 +751,7 @@ func (rwc *reconWithClient) flushQueue() error {
 
 var zeroTime time.Time
 
-func (p *Peer) interactWithClient(conn net.Conn, remoteConfig *Config, bitstring *cf.Bitstring) error {
+func (p *Peer) interactWithClient(conn net.Conn, remoteConfig *Config, partner *Partner, bitstring *cf.Bitstring) error {
 	p.logConn(SERVE, conn).Debug("interacting with client")
 	p.setReadDeadline(conn, defaultTimeout)
 
@@ -761,7 +767,7 @@ func (p *Peer) interactWithClient(conn net.Conn, remoteConfig *Config, bitstring
 	}
 
 	defer func() {
-		p.sendItems(recon.rcvrSet.Items(), conn, remoteConfig, SERVE)
+		p.sendItems(recon.rcvrSet.Items(), conn, remoteConfig, partner, SERVE)
 	}()
 	defer func() {
 		WriteMsg(recon.bwr, &Done{})
@@ -841,11 +847,12 @@ func (p *Peer) interactWithClient(conn net.Conn, remoteConfig *Config, bitstring
 	return nil
 }
 
-func (p *Peer) sendItems(items []cf.Zp, conn net.Conn, remoteConfig *Config, context string) error {
+func (p *Peer) sendItems(items []cf.Zp, conn net.Conn, remoteConfig *Config, partner *Partner, context string) error {
 	if len(items) > 0 && p.t.Alive() {
 		done := make(chan struct{})
 		select {
 		case p.RecoverChan <- &Recover{
+			Partner:        partner,
 			RemoteAddr:     conn.RemoteAddr(),
 			RemoteConfig:   remoteConfig,
 			RemoteElements: items,

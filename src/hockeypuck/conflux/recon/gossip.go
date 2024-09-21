@@ -58,7 +58,7 @@ func (p *Peer) Gossip() error {
 		case <-timer.C:
 
 			if p.readAcquire() {
-				peer, err := p.choosePartner()
+				partner, err := p.choosePartner()
 				if err != nil {
 					if errors.Is(err, ErrNoPartners) {
 						p.log(GOSSIP).Debug("no partners to gossip with")
@@ -67,16 +67,16 @@ func (p *Peer) Gossip() error {
 					}
 				} else {
 					start := time.Now()
-					recordReconInitiate(peer, CLIENT)
-					err = p.InitiateRecon(peer)
+					recordReconInitiate(partner.Addr, CLIENT)
+					err = p.InitiateRecon(partner)
 					if errors.Is(err, ErrPeerBusy) {
 						p.logErr(GOSSIP, err).Debug()
-						recordReconBusyPeer(peer, CLIENT)
+						recordReconBusyPeer(partner.Addr, CLIENT)
 					} else if err != nil {
-						p.logErr(GOSSIP, err).Errorf("recon with %v failed", peer)
-						recordReconFailure(peer, time.Since(start), CLIENT)
+						p.logErr(GOSSIP, err).Errorf("recon with %v failed", partner)
+						recordReconFailure(partner.Addr, time.Since(start), CLIENT)
 					} else {
-						recordReconSuccess(peer, time.Since(start), CLIENT)
+						recordReconSuccess(partner.Addr, time.Since(start), CLIENT)
 					}
 				}
 
@@ -95,8 +95,8 @@ var ErrIncompatiblePeer error = fmt.Errorf("remote peer configuration is not com
 var ErrPeerBusy error = fmt.Errorf("peer is busy handling another request")
 var ErrReconDone = fmt.Errorf("reconciliation done")
 
-func (p *Peer) choosePartner() (net.Addr, error) {
-	partner, errorList := p.settings.RandomPartnerAddr()
+func (p *Peer) choosePartner() (*Partner, error) {
+	partner, errorList := p.settings.RandomPartner()
 	// Name resolution errors are not fatal unless partner==nil
 	for _, err := range errorList {
 		p.log(GOSSIP).Info(err.Error())
@@ -107,9 +107,9 @@ func (p *Peer) choosePartner() (net.Addr, error) {
 	return partner, nil
 }
 
-func (p *Peer) InitiateRecon(addr net.Addr) error {
-	p.log(GOSSIP).Infof("initiating recon with peer %v", addr)
-	conn, err := net.DialTimeout(addr.Network(), addr.String(), 30*time.Second)
+func (p *Peer) InitiateRecon(partner *Partner) error {
+	p.log(GOSSIP).Infof("initiating recon with peer %v", partner.Addr)
+	conn, err := net.DialTimeout(partner.Addr.Network(), partner.Addr.String(), 30*time.Second)
 	if err != nil {
 		return errors.WithStack(err)
 	}
@@ -121,7 +121,7 @@ func (p *Peer) InitiateRecon(addr net.Addr) error {
 	}
 
 	// Interact with peer
-	return p.clientRecon(conn, remoteConfig)
+	return p.clientRecon(conn, remoteConfig, partner)
 }
 
 type msgProgress struct {
@@ -149,11 +149,11 @@ func msgTypes(messages []ReconMsg) []string {
 
 type msgProgressChan chan *msgProgress
 
-func (p *Peer) clientRecon(conn net.Conn, remoteConfig *Config) error {
+func (p *Peer) clientRecon(conn net.Conn, remoteConfig *Config, partner *Partner) error {
 	w := bufio.NewWriter(conn)
 	respSet := cf.NewZSet()
 	defer func() {
-		p.sendItems(respSet.Items(), conn, remoteConfig, GOSSIP)
+		p.sendItems(respSet.Items(), conn, remoteConfig, partner, GOSSIP)
 	}()
 
 	var pendingMessages []ReconMsg

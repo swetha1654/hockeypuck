@@ -76,6 +76,10 @@ type Partner struct {
 	ReconAddr string  `toml:"reconAddr"`
 	ReconNet  netType `toml:"reconNet" json:"-"`
 	Weight    int     `toml:"weight"`
+	// Addr is the resolved address used by the current recon
+	Addr net.Addr
+	// IPs is the list of all IPs associated with this partner, for the matcher
+	IPs []net.IP
 }
 
 type matchAccessType uint8
@@ -85,11 +89,12 @@ const (
 )
 
 type IPMatcher interface {
-	Match(ip net.IP) bool
+	Match(ip net.IP) *Partner
 }
 
 type ipMatcher struct {
-	nets []*net.IPNet
+	nets     []*net.IPNet
+	partners []*Partner
 }
 
 func newIPMatcher() *ipMatcher {
@@ -97,22 +102,30 @@ func newIPMatcher() *ipMatcher {
 }
 
 func (m *ipMatcher) allow(partner Partner) error {
-	var httpAddr *net.TCPAddr
+	var reconHostname string
+	if partner.ReconNet == NetworkDefault || partner.ReconNet == NetworkTCP {
+		reconHostname, _, err := net.SplitHostPort(partner.ReconAddr)
+		if err != nil {
+			return err
+		}
+		ips, err := net.LookupIP(reconHostname)
+		if err == nil {
+			partner.IPs = ips
+		}
+	}
 	if partner.HTTPNet == NetworkDefault || partner.HTTPNet == NetworkTCP {
-		httpAddr, resolveErr := net.ResolveTCPAddr("tcp", partner.HTTPAddr)
-		if resolveErr == nil && httpAddr.IP != nil {
-			err := m.allowCIDR(fmt.Sprintf("%s/32", httpAddr.IP.String()))
-			if err != nil {
-				return errors.WithStack(err)
+		httpHostname, _, err := net.SplitHostPort(partner.HTTPAddr)
+		if err != nil {
+			return err
+		}
+		if reconHostname != httpHostname {
+			ips, err := net.LookupIP(httpHostname)
+			if err == nil && reconHostname != httpHostname {
+				partner.IPs = append(partner.IPs, ips...)
 			}
 		}
 	}
-	if partner.ReconNet == NetworkDefault || partner.ReconNet == NetworkTCP {
-		addr, resolveErr := net.ResolveTCPAddr("tcp", partner.ReconAddr)
-		if resolveErr == nil && addr.IP != nil && (httpAddr == nil || !addr.IP.Equal(httpAddr.IP)) {
-			return m.allowCIDR(fmt.Sprintf("%s/32", addr.IP.String()))
-		}
-	}
+	m.partners = append(m.partners, &partner)
 	return nil
 }
 
@@ -125,16 +138,23 @@ func (m *ipMatcher) allowCIDR(cidr string) error {
 	return nil
 }
 
-func (m *ipMatcher) Match(ip net.IP) bool {
+func (m *ipMatcher) Match(ip net.IP) *Partner {
 	if ip.IsLoopback() {
-		return true
+		return &Partner{IPs: []net.IP{ip}, Addr: &net.IPAddr{IP: ip, Zone: ""}, HTTPAddr: "localhost", ReconAddr: "localhost"}
 	}
 	for _, matchNet := range m.nets {
 		if matchNet.Contains(ip) {
-			return true
+			return &Partner{IPs: []net.IP{ip}, Addr: &net.IPAddr{IP: ip, Zone: ""}, HTTPAddr: ip.String(), ReconAddr: ip.String()}
 		}
 	}
-	return false
+	for _, matchPartner := range m.partners {
+		for _, matchIP := range matchPartner.IPs {
+			if matchIP.Equal(ip) {
+				return matchPartner
+			}
+		}
+	}
+	return nil
 }
 
 func (s *Settings) Matcher() (IPMatcher, error) {
@@ -354,20 +374,20 @@ func (c *PTreeConfig) NumSamples() int {
 	return c.MBar + 1
 }
 
-// RandomPartnerAddr returns the a weighted-random chosen resolved network
-// addresses of configured partner peers.
-func (s *Settings) RandomPartnerAddr() (net.Addr, []error) {
+// RandomPartner returns a weighted-random chosen resolved parter object.
+func (s *Settings) RandomPartner() (*Partner, []error) {
 	var choices []randutil.Choice
 	var errorList []error
 	for _, partner := range s.Partners {
 		addr, err := partner.ReconNet.Resolve(partner.ReconAddr)
 		if err == nil {
+			partner.Addr = addr
 			weight := partner.Weight
 			if weight == 0 {
 				weight = 100
 			}
 			if weight > 0 {
-				choices = append(choices, randutil.Choice{Weight: weight, Item: addr})
+				choices = append(choices, randutil.Choice{Weight: weight, Item: partner})
 			}
 		} else {
 			errorList = append(errorList, err)
@@ -381,5 +401,5 @@ func (s *Settings) RandomPartnerAddr() (net.Addr, []error) {
 		errorList = append(errorList, err)
 		return nil, errorList
 	}
-	return choice.Item.(net.Addr), errorList
+	return choice.Item.(*Partner), errorList
 }
