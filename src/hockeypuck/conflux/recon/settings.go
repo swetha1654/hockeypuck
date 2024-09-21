@@ -105,23 +105,21 @@ func (m *ipMatcher) allow(partner Partner) error {
 	var reconHostname string
 	if partner.ReconNet == NetworkDefault || partner.ReconNet == NetworkTCP {
 		reconHostname, _, err := net.SplitHostPort(partner.ReconAddr)
-		if err != nil {
-			return err
-		}
-		ips, err := net.LookupIP(reconHostname)
 		if err == nil {
-			partner.IPs = ips
+			ips, err := net.LookupIP(reconHostname)
+			if err == nil {
+				partner.IPs = ips
+			}
 		}
 	}
 	if partner.HTTPNet == NetworkDefault || partner.HTTPNet == NetworkTCP {
 		httpHostname, _, err := net.SplitHostPort(partner.HTTPAddr)
-		if err != nil {
-			return err
-		}
-		if reconHostname != httpHostname {
-			ips, err := net.LookupIP(httpHostname)
-			if err == nil && reconHostname != httpHostname {
-				partner.IPs = append(partner.IPs, ips...)
+		if err == nil {
+			if reconHostname != httpHostname {
+				ips, err := net.LookupIP(httpHostname)
+				if err == nil && reconHostname != httpHostname {
+					partner.IPs = append(partner.IPs, ips...)
+				}
 			}
 		}
 	}
@@ -140,11 +138,11 @@ func (m *ipMatcher) allowCIDR(cidr string) error {
 
 func (m *ipMatcher) Match(ip net.IP) *Partner {
 	if ip.IsLoopback() {
-		return &Partner{IPs: []net.IP{ip}, Addr: &net.IPAddr{IP: ip, Zone: ""}, HTTPAddr: "localhost", ReconAddr: "localhost"}
+		return &Partner{IPs: []net.IP{ip}, Addr: &net.IPAddr{IP: ip, Zone: ""}, ReconAddr: "localhost"}
 	}
 	for _, matchNet := range m.nets {
 		if matchNet.Contains(ip) {
-			return &Partner{IPs: []net.IP{ip}, Addr: &net.IPAddr{IP: ip, Zone: ""}, HTTPAddr: ip.String(), ReconAddr: ip.String()}
+			return &Partner{IPs: []net.IP{ip}, Addr: &net.IPAddr{IP: ip, Zone: ""}, ReconAddr: ip.String()}
 		}
 	}
 	for _, matchPartner := range m.partners {
@@ -387,7 +385,7 @@ func (s *Settings) RandomPartner() (*Partner, []error) {
 				weight = 100
 			}
 			if weight > 0 {
-				choices = append(choices, randutil.Choice{Weight: weight, Item: partner})
+				choices = append(choices, randutil.Choice{Weight: weight, Item: &partner})
 			}
 		} else {
 			errorList = append(errorList, err)

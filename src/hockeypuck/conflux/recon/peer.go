@@ -63,8 +63,12 @@ func (r *Recover) HkpAddr() (string, error) {
 	}
 	host, _, err := net.SplitHostPort(addr)
 	if err != nil {
-		log.Errorf("cannot parse HKP remote address from %q: %v", addr, err)
-		return "", errors.WithStack(err)
+		// Fall back to the connection IP if the Partner config doesn't work.
+		host, _, err = net.SplitHostPort(r.RemoteAddr.String())
+		if err != nil {
+			log.Errorf("cannot parse HKP remote address from %q: %v", addr, err)
+			return "", errors.WithStack(err)
+		}
 	}
 	if strings.Contains(host, ":") {
 		host = fmt.Sprintf("[%s]", host)
