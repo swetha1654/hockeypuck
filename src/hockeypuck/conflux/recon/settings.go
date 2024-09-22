@@ -76,9 +76,9 @@ type Partner struct {
 	ReconAddr string  `toml:"reconAddr"`
 	ReconNet  netType `toml:"reconNet" json:"-"`
 	Weight    int     `toml:"weight"`
-	// Addr is the resolved address used by the current recon
+	// Addr is the resolved address last used by outgoing recon
 	Addr net.Addr
-	// IPs is the list of all IPs associated with this partner, for the matcher
+	// IPs is the set of source IPs allowed for incoming recon
 	IPs []net.IP
 }
 
@@ -94,6 +94,7 @@ const (
 
 type IPMatcher interface {
 	Match(ip net.IP) *Partner
+	RandomPartner() (*Partner, []error)
 }
 
 type ipMatcher struct {
@@ -376,20 +377,26 @@ func (c *PTreeConfig) NumSamples() int {
 	return c.MBar + 1
 }
 
-// RandomPartner returns a weighted-random chosen resolved parter object.
-func (s *Settings) RandomPartner() (*Partner, []error) {
+// RandomPartner returns a weighted-random chosen ip-resolved Partner.
+func (m *ipMatcher) RandomPartner() (*Partner, []error) {
 	var choices []randutil.Choice
 	var errorList []error
-	for _, partner := range s.Partners {
+	for index, partner := range m.partners {
 		addr, err := partner.ReconNet.Resolve(partner.ReconAddr)
 		if err == nil {
-			partner.Addr = addr
+			// Freshen resolved IPs regularly
+			m.partners[index].Addr = addr
+			host, _, _ := net.SplitHostPort(partner.ReconAddr)
+			ips, err := net.LookupIP(host)
+			if err == nil {
+				m.partners[index].IPs = ips
+			}
 			weight := partner.Weight
 			if weight == 0 {
 				weight = 100
 			}
 			if weight > 0 {
-				choices = append(choices, randutil.Choice{Weight: weight, Item: &partner})
+				choices = append(choices, randutil.Choice{Weight: weight, Item: partner})
 			}
 		} else {
 			errorList = append(errorList, err)

@@ -85,6 +85,7 @@ var (
 type Peer struct {
 	settings *Settings
 	ptree    PrefixTree
+	matcher  IPMatcher
 
 	RecoverChan RecoverChan
 
@@ -113,6 +114,13 @@ func NewPeer(settings *Settings, tree PrefixTree) *Peer {
 		ptree:       tree,
 	}
 	p.cond = sync.NewCond(&p.mu)
+
+	matcher, err := p.settings.Matcher()
+	if err != nil {
+		log.Errorf("cannot create matcher: %v", err)
+		return nil
+	}
+	p.matcher = matcher
 
 	registerMetrics()
 
@@ -308,11 +316,6 @@ func (p *Peer) Serve() error {
 	if err != nil {
 		return errors.WithStack(err)
 	}
-	matcher, err := p.settings.Matcher()
-	if err != nil {
-		log.Errorf("cannot create matcher: %v", err)
-		return errors.WithStack(err)
-	}
 
 	ln, err := net.Listen(addr.Network(), addr.String())
 	if err != nil {
@@ -335,7 +338,7 @@ func (p *Peer) Serve() error {
 			tcConn.SetKeepAlivePeriod(3 * time.Minute)
 
 			remoteAddr := tcConn.RemoteAddr().(*net.TCPAddr)
-			if partner = matcher.Match(remoteAddr.IP); partner == nil {
+			if partner = p.matcher.Match(remoteAddr.IP); partner == nil {
 				log.Warningf("connection rejected from %q", remoteAddr)
 				conn.Close()
 				continue
