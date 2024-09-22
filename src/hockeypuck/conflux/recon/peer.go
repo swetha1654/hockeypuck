@@ -693,7 +693,7 @@ func (rwc *reconWithClient) sendRequest(p *Peer, req *requestEntry) error {
 	return nil
 }
 
-func (rwc *reconWithClient) handleReply(p *Peer, msg ReconMsg, req *requestEntry) error {
+func (rwc *reconWithClient) handleReply(msg ReconMsg, req *requestEntry) error {
 	rwc.Peer.logConnFields(SERVE, rwc.conn, log.Fields{"msg": msg}).Debug("handleReply")
 	switch m := msg.(type) {
 	case *SyncFail:
@@ -811,7 +811,7 @@ func (p *Peer) interactWithClient(conn net.Conn, remoteConfig *Config, partner *
 
 			if hasMsg {
 				recon.popBottom()
-				err = recon.handleReply(p, msg, bottom.requestEntry)
+				err = recon.handleReply(msg, bottom.requestEntry)
 				if err != nil {
 					return errors.WithStack(err)
 				}
@@ -830,7 +830,7 @@ func (p *Peer) interactWithClient(conn net.Conn, remoteConfig *Config, partner *
 						return errors.WithStack(err)
 					}
 					p.logConnFields(SERVE, conn, log.Fields{"msg": msg}).Debug("reply")
-					err = recon.handleReply(p, msg, bottom.requestEntry)
+					err = recon.handleReply(msg, bottom.requestEntry)
 					if err != nil {
 						return errors.WithStack(err)
 					}
