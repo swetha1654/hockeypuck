@@ -107,29 +107,34 @@ func newIPMatcher() *ipMatcher {
 }
 
 func (m *ipMatcher) allow(partner Partner) error {
-	var reconHostname string
-	if partner.ReconNet == NetworkDefault || partner.ReconNet == NetworkTCP {
-		reconHostname, _, err := net.SplitHostPort(partner.ReconAddr)
-		if err == nil {
-			ips, err := net.LookupIP(reconHostname)
-			if err == nil {
-				partner.IPs = ips
-			}
-		}
+	partner.updateIPs()
+	m.partners = append(m.partners, &partner)
+	return nil
+}
+
+func (partner *Partner) updateIPs() {
+	if partner.ReconNet != NetworkDefault && partner.ReconNet != NetworkTCP {
+		return
+	}
+	reconHostname, _, _ := net.SplitHostPort(partner.ReconAddr)
+	ips, err := net.LookupIP(reconHostname)
+	if err != nil {
+		return
 	}
 	if partner.HTTPNet == NetworkDefault || partner.HTTPNet == NetworkTCP {
 		httpHostname, _, err := net.SplitHostPort(partner.HTTPAddr)
 		if err == nil {
 			if reconHostname != httpHostname {
-				ips, err := net.LookupIP(httpHostname)
+				httpIPs, err := net.LookupIP(httpHostname)
 				if err == nil && reconHostname != httpHostname {
-					partner.IPs = append(partner.IPs, ips...)
+					ips = append(ips, httpIPs...)
 				}
 			}
 		}
 	}
-	m.partners = append(m.partners, &partner)
-	return nil
+	if len(ips) != 0 {
+		partner.IPs = ips
+	}
 }
 
 func (m *ipMatcher) allowCIDR(cidr string) error {
@@ -386,11 +391,7 @@ func (m *ipMatcher) RandomPartner() (*Partner, []error) {
 		if err == nil {
 			// Freshen resolved IPs regularly
 			m.partners[index].Addr = addr
-			host, _, _ := net.SplitHostPort(partner.ReconAddr)
-			ips, err := net.LookupIP(host)
-			if err == nil {
-				m.partners[index].IPs = ips
-			}
+			m.partners[index].updateIPs()
 			weight := partner.Weight
 			if weight == 0 {
 				weight = 100
