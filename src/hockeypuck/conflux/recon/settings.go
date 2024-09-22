@@ -142,11 +142,11 @@ func (m *ipMatcher) allowCIDR(cidr string) error {
 
 func (m *ipMatcher) Match(ip net.IP) *Partner {
 	if ip.IsLoopback() {
-		return &Partner{IPs: []net.IP{ip}, Addr: &net.IPAddr{IP: ip, Zone: ""}, ReconAddr: "localhost"}
+		return &Partner{IPs: []net.IP{ip}, Addr: &net.IPAddr{IP: ip, Zone: ""}}
 	}
 	for _, matchNet := range m.nets {
 		if matchNet.Contains(ip) {
-			return &Partner{IPs: []net.IP{ip}, Addr: &net.IPAddr{IP: ip, Zone: ""}, ReconAddr: ip.String()}
+			return &Partner{IPs: []net.IP{ip}, Addr: &net.IPAddr{IP: ip, Zone: ""}}
 		}
 	}
 	for _, matchPartner := range m.partners {

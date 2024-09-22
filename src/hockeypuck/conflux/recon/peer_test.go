@@ -50,17 +50,17 @@ func (s *PeerSuite) TestResolveRecoverAddr(c *gc.C) {
 			},
 		}
 
-		hkpHostPort, err := r.HkpAddr()
+		recoverHostPort, err := r.RecoverAddr()
 		c.Assert(err, gc.IsNil)
 
-		hkpAddr, err := net.ResolveTCPAddr("tcp", hkpHostPort)
+		recoverAddr, err := net.ResolveTCPAddr("tcp", recoverHostPort)
 		c.Assert(err, gc.IsNil)
 
-		hkpHost, _, err := net.SplitHostPort(hkpHostPort)
+		recoverHost, _, err := net.SplitHostPort(recoverHostPort)
 		c.Assert(err, gc.IsNil)
 
-		c.Assert(hkpAddr.Port, gc.Equals, 8080)
-		c.Assert(reconAddr.IP, gc.DeepEquals, hkpAddr.IP)
-		c.Assert(testHost, gc.Equals, hkpHost)
+		c.Assert(recoverAddr.Port, gc.Equals, 8080)
+		c.Assert(reconAddr.IP, gc.DeepEquals, recoverAddr.IP)
+		c.Assert(testHost, gc.Equals, recoverHost)
 	}
 }

@@ -32,12 +32,13 @@ import (
 	"github.com/pkg/errors"
 	"gopkg.in/tomb.v2"
 
-	log "github.com/sirupsen/logrus"
 	cf "hockeypuck/conflux"
 	"hockeypuck/conflux/recon"
 	"hockeypuck/conflux/recon/leveldb"
 	"hockeypuck/hkp/storage"
 	"hockeypuck/openpgp"
+
+	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -372,12 +373,12 @@ func (r *Peer) requestRecovered(rcvr *recon.Recover) error {
 }
 
 func (r *Peer) requestChunk(rcvr *recon.Recover, chunk []cf.Zp) error {
-	var remoteAddr string
-	remoteAddr, err := rcvr.HkpAddr()
+	var recoverAddr string
+	recoverAddr, err := rcvr.RecoverAddr()
 	if err != nil {
 		return errors.WithStack(err)
 	}
-	r.logAddr(RECON, rcvr.RemoteAddr).Debugf("requesting %d keys from %q via hashquery", len(chunk), remoteAddr)
+	r.logAddr(RECON, rcvr.RemoteAddr).Debugf("requesting %d keys from %q via hashquery", len(chunk), recoverAddr)
 	// Make an sks hashquery request
 	hqBuf := bytes.NewBuffer(nil)
 	err = recon.WriteInt(hqBuf, len(chunk))
@@ -399,7 +400,7 @@ func (r *Peer) requestChunk(rcvr *recon.Recover, chunk []cf.Zp) error {
 		}
 	}
 
-	url := fmt.Sprintf("http://%s/pks/hashquery", remoteAddr)
+	url := fmt.Sprintf("http://%s/pks/hashquery", recoverAddr)
 	req, err := http.NewRequest("POST", url, bytes.NewReader(hqBuf.Bytes()))
 	if err != nil {
 		return errors.WithStack(err)
@@ -424,7 +425,7 @@ func (r *Peer) requestChunk(rcvr *recon.Recover, chunk []cf.Zp) error {
 	resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return errors.Errorf("error response from %q: %v", remoteAddr, string(bodyBuf))
+		return errors.Errorf("error response from %q: %v", recoverAddr, string(bodyBuf))
 	}
 
 	var nkeys, keyLen int
@@ -432,7 +433,7 @@ func (r *Peer) requestChunk(rcvr *recon.Recover, chunk []cf.Zp) error {
 	if err != nil {
 		return errors.WithStack(err)
 	}
-	r.logAddr(RECON, rcvr.RemoteAddr).Debugf("hashquery response from %q: %d keys found", remoteAddr, nkeys)
+	r.logAddr(RECON, rcvr.RemoteAddr).Debugf("hashquery response from %q: %d keys found", recoverAddr, nkeys)
 	summary := &upsertResult{}
 	defer func() {
 		fields := r.logAddr(RECON, rcvr.RemoteAddr)

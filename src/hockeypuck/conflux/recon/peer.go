@@ -25,7 +25,6 @@ import (
 	"bufio"
 	"fmt"
 	"net"
-	"strings"
 	"sync"
 	"time"
 
@@ -55,25 +54,22 @@ func (r *Recover) String() string {
 	return fmt.Sprintf("%v: %d elements", r.RemoteAddr, len(r.RemoteElements))
 }
 
-func (r *Recover) HkpAddr() (string, error) {
-	// Use remote HKP host:port as peer-unique identifier
-	addr := r.Partner.ReconAddr
-	if r.Partner.HTTPAddr != "" {
-		addr = r.Partner.HTTPAddr
-	}
-	host, _, err := net.SplitHostPort(addr)
-	if err != nil {
-		// Fall back to the connection IP if the Partner config doesn't work.
-		host, _, err = net.SplitHostPort(r.RemoteAddr.String())
-		if err != nil {
-			log.Errorf("cannot parse HKP remote address from %q: %v", addr, err)
-			return "", errors.WithStack(err)
+// RecoverAddr differs in general from both ReconAddr and HTTPAddr.
+// It uses the recon host and the HTTP port advertised by the remote recon config.
+func (r *Recover) RecoverAddr() (string, error) {
+	// Prefer the configured recon address.
+	host, _, err1 := net.SplitHostPort(r.Partner.ReconAddr)
+	if host == "" {
+		// Fall back to the connection IP (if localhost or allowCIDR).
+		var err2 error
+		host, _, err2 = net.SplitHostPort(r.RemoteAddr.String())
+		if err2 != nil {
+			log.Errorf("cannot parse remote address from %q: %v, or %q: %v", r.RemoteAddr, err2, r.Partner.ReconAddr, err1)
+			return "", errors.WithStack(err2)
 		}
 	}
-	if strings.Contains(host, ":") {
-		host = fmt.Sprintf("[%s]", host)
-	}
-	return fmt.Sprintf("%s:%d", host, r.RemoteConfig.HTTPPort), nil
+	// Append the advertised recovery port.
+	return net.JoinHostPort(host, fmt.Sprintf("%d", r.RemoteConfig.HTTPPort)), nil
 }
 
 type RecoverChan chan *Recover
