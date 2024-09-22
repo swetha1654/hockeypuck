@@ -82,6 +82,10 @@ type Partner struct {
 	IPs []net.IP
 }
 
+func (p *Partner) String() string {
+	return fmt.Sprintf("recon=%s, http=%s, weight=%d, addr=%v, ips=%v", p.ReconAddr, p.HTTPAddr, p.Weight, p.Addr, p.IPs)
+}
+
 type matchAccessType uint8
 
 const (

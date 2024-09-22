@@ -544,7 +544,7 @@ func (p *Peer) handleConfig(conn net.Conn, role string, failResp string) (_ *Con
 func (p *Peer) Accept(conn net.Conn, partner *Partner) (_err error) {
 	defer conn.Close()
 
-	p.logConn(SERVE, conn).Info("accepted connection")
+	p.log(SERVE).Infof("accepted recon from [%s]", partner.String())
 	defer func() {
 		if _err != nil {
 			p.logConnErr(SERVE, conn, _err).Error()

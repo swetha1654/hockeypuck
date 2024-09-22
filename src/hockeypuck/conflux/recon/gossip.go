@@ -108,7 +108,7 @@ func (p *Peer) choosePartner() (*Partner, error) {
 }
 
 func (p *Peer) InitiateRecon(partner *Partner) error {
-	p.log(GOSSIP).Infof("initiating recon with peer %v", partner.Addr)
+	p.log(GOSSIP).Infof("initiating recon to [%s]", partner.String())
 	conn, err := net.DialTimeout(partner.Addr.Network(), partner.Addr.String(), 30*time.Second)
 	if err != nil {
 		return errors.WithStack(err)
