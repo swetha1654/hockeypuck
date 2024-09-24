@@ -296,7 +296,11 @@ func (r *Peer) handleRecovery() error {
 			func() {
 				defer close(rcvr.Done)
 				if err := r.requestRecovered(rcvr); err != nil {
+					rcvr.Partner.LastRecoveryError = err
 					r.logAddr(RECON, rcvr.RemoteAddr).Errorf("recovery completed with errors: %v", err)
+				} else {
+					rcvr.Partner.LastRecoveryError = nil
+					rcvr.Partner.LastRecovery = time.Now()
 				}
 			}()
 		}

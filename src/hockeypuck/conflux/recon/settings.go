@@ -89,6 +89,9 @@ type Partner struct {
 	LastIncomingError error
 	LastOutgoingRecon time.Time
 	LastOutgoingError error
+	// These are not used by conflux, but are provided so the caller can store recovery logs in a convenient place.
+	LastRecovery      time.Time
+	LastRecoveryError error
 }
 
 func (p *Partner) String() string {

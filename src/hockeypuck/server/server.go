@@ -240,6 +240,9 @@ type statsPeer struct {
 	LastOutgoingRecon time.Time
 	LastOutgoingError string
 	ReconStatus       string
+	LastRecovery      time.Time
+	LastRecoveryError string
+	RecoveryStatus    string
 }
 
 type statsPeers []statsPeer
@@ -300,6 +303,7 @@ func (s *Server) stats(req *http.Request) (interface{}, error) {
 	sort.Sort(loadStats(result.Daily))
 	for _, v := range s.sksPeer.CurrentPartners() {
 		reconStatus := "OK"
+		recoveryStatus := "OK"
 		now := time.Now()
 		reconStaleLimit := time.Duration(s.settings.ReconStaleSecs) * time.Second
 		if v.LastIncomingRecon.Add(reconStaleLimit).Before(now) && v.LastOutgoingRecon.Add(reconStaleLimit).Before(now) {
@@ -308,6 +312,12 @@ func (s *Server) stats(req *http.Request) (interface{}, error) {
 			} else {
 				reconStatus = "Starting"
 			}
+		}
+		if v.LastRecoveryError != nil {
+			recoveryStatus = "Error"
+		} else if v.LastRecovery.IsZero() {
+			// If no recovery yet, then throw consistent error instead of implying that recovery is working.
+			recoveryStatus = reconStatus
 		}
 		result.Peers = append(result.Peers, statsPeer{
 			Name:              v.Name,
@@ -318,6 +328,9 @@ func (s *Server) stats(req *http.Request) (interface{}, error) {
 			LastOutgoingRecon: v.LastOutgoingRecon,
 			LastOutgoingError: fmt.Sprintf("%q", v.LastOutgoingError),
 			ReconStatus:       reconStatus,
+			LastRecovery:      v.LastRecovery,
+			LastRecoveryError: fmt.Sprintf("%q", v.LastRecoveryError),
+			RecoveryStatus:    recoveryStatus,
 		})
 	}
 	sort.Sort(statsPeers(result.Peers))
