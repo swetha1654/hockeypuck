@@ -359,10 +359,13 @@ func (p *Peer) Serve() error {
 				recordReconBusyPeer(conn.RemoteAddr(), SERVER)
 			} else if err != nil {
 				p.logErr(SERVE, err).Errorf("recon with %v failed", conn.RemoteAddr())
+				partner.LastIncomingError = err
 				recordReconFailure(conn.RemoteAddr(), time.Since(start), SERVER)
 			} else {
+				partner.LastIncomingError = nil
 				recordReconSuccess(conn.RemoteAddr(), time.Since(start), SERVER)
 			}
+			partner.LastIncomingRecon = start
 			return nil
 		})
 		p.muDie.Unlock()

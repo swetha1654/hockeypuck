@@ -32,6 +32,7 @@ import (
 	"net"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/BurntSushi/toml"
 	"github.com/jmcvetta/randutil"
@@ -80,6 +81,11 @@ type Partner struct {
 	Addr net.Addr
 	// IPs is the set of source IPs allowed for incoming recon
 	IPs []net.IP
+	// Log of successes and failures
+	LastIncomingRecon time.Time
+	LastIncomingError error
+	LastOutgoingRecon time.Time
+	LastOutgoingError error
 }
 
 func (p *Partner) String() string {

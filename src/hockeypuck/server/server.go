@@ -16,7 +16,6 @@ import (
 	"github.com/pkg/errors"
 	"gopkg.in/tomb.v2"
 
-	log "github.com/sirupsen/logrus"
 	"hockeypuck/conflux/recon"
 	"hockeypuck/hkp"
 	"hockeypuck/hkp/sks"
@@ -24,6 +23,8 @@ import (
 	"hockeypuck/metrics"
 	"hockeypuck/openpgp"
 	"hockeypuck/pghkp"
+
+	log "github.com/sirupsen/logrus"
 )
 
 type Server struct {
@@ -231,9 +232,14 @@ func (s loadStats) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
 func (s loadStats) Less(i, j int) bool { return s[i].Time.Before(s[j].Time) }
 
 type statsPeer struct {
-	Name      string
-	HTTPAddr  string `json:"httpAddr"`
-	ReconAddr string `json:"reconAddr"`
+	Name              string
+	HTTPAddr          string `json:"httpAddr"`
+	ReconAddr         string `json:"reconAddr"`
+	LastIncomingRecon time.Time
+	LastIncomingError string
+	LastOutgoingRecon time.Time
+	LastOutgoingError string
+	ReconStatus       string
 }
 
 type statsPeers []statsPeer
@@ -293,10 +299,23 @@ func (s *Server) stats(req *http.Request) (interface{}, error) {
 	}
 	sort.Sort(loadStats(result.Daily))
 	for k, v := range s.settings.Conflux.Recon.Settings.Partners {
+		reconStatus := "OK"
+		now := time.Now()
+		reconStaleLimit := time.Duration(s.settings.ReconStaleSecs) * time.Second
+		if v.LastIncomingError != nil || v.LastOutgoingError != nil {
+			reconStatus = "Error"
+		} else if v.LastIncomingRecon.Add(reconStaleLimit).Before(now) || v.LastOutgoingRecon.Add(reconStaleLimit).Before(now) {
+			reconStatus = "Stale"
+		}
 		result.Peers = append(result.Peers, statsPeer{
-			Name:      k,
-			HTTPAddr:  v.HTTPAddr,
-			ReconAddr: v.ReconAddr,
+			Name:              k,
+			HTTPAddr:          v.HTTPAddr,
+			ReconAddr:         v.ReconAddr,
+			LastIncomingRecon: v.LastIncomingRecon,
+			LastIncomingError: fmt.Sprintf("%q", v.LastIncomingError),
+			LastOutgoingRecon: v.LastOutgoingRecon,
+			LastOutgoingError: fmt.Sprintf("%q", v.LastOutgoingError),
+			ReconStatus:       reconStatus,
 		})
 	}
 	sort.Sort(statsPeers(result.Peers))

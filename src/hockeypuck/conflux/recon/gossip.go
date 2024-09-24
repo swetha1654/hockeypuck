@@ -73,11 +73,14 @@ func (p *Peer) Gossip() error {
 						p.logErr(GOSSIP, err).Debug()
 						recordReconBusyPeer(partner.Addr, CLIENT)
 					} else if err != nil {
+						partner.LastOutgoingError = err
 						p.logErr(GOSSIP, err).Errorf("recon with %v failed", partner)
 						recordReconFailure(partner.Addr, time.Since(start), CLIENT)
 					} else {
+						partner.LastOutgoingError = nil
 						recordReconSuccess(partner.Addr, time.Since(start), CLIENT)
 					}
+					partner.LastOutgoingRecon = start
 				}
 
 				p.readRelease()
