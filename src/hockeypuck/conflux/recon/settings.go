@@ -77,6 +77,8 @@ type Partner struct {
 	ReconAddr string  `toml:"reconAddr"`
 	ReconNet  netType `toml:"reconNet" json:"-"`
 	Weight    int     `toml:"weight"`
+	// Name is a copy of the key used in the Settings map
+	Name string
 	// Addr is the resolved address last used by outgoing recon
 	Addr net.Addr
 	// IPs is the set of source IPs allowed for incoming recon
@@ -101,6 +103,7 @@ const (
 type IPMatcher interface {
 	Match(ip net.IP) *Partner
 	RandomPartner() (*Partner, []error)
+	CurrentPartners() []*Partner
 }
 
 type ipMatcher struct {
@@ -108,12 +111,17 @@ type ipMatcher struct {
 	partners []*Partner
 }
 
+func (m *ipMatcher) CurrentPartners() []*Partner {
+	return m.partners
+}
+
 func newIPMatcher() *ipMatcher {
 	return &ipMatcher{}
 }
 
-func (m *ipMatcher) allow(partner Partner) error {
+func (m *ipMatcher) allow(name string, partner Partner) error {
 	partner.updateIPs()
+	partner.Name = name
 	m.partners = append(m.partners, &partner)
 	return nil
 }
@@ -179,8 +187,8 @@ func (s *Settings) Matcher() (IPMatcher, error) {
 			return nil, errors.WithStack(err)
 		}
 	}
-	for _, partner := range s.Partners {
-		err := m.allow(partner)
+	for k, partner := range s.Partners {
+		err := m.allow(k, partner)
 		if err != nil {
 			return nil, errors.WithStack(err)
 		}

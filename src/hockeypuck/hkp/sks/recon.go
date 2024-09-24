@@ -149,6 +149,10 @@ func NewPeer(st storage.Storage, path string, s *recon.Settings, opts []openpgp.
 	return sksPeer, nil
 }
 
+func (p *Peer) CurrentPartners() []*recon.Partner {
+	return p.peer.CurrentPartners()
+}
+
 func (p *Peer) log(label string) *log.Entry {
 	return p.logFields(label, log.Fields{})
 }

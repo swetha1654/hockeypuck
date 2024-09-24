@@ -298,7 +298,7 @@ func (s *Server) stats(req *http.Request) (interface{}, error) {
 		result.Daily = append(result.Daily, loadStat{LoadStat: v, Time: k})
 	}
 	sort.Sort(loadStats(result.Daily))
-	for k, v := range s.settings.Conflux.Recon.Settings.Partners {
+	for _, v := range s.sksPeer.CurrentPartners() {
 		reconStatus := "OK"
 		now := time.Now()
 		reconStaleLimit := time.Duration(s.settings.ReconStaleSecs) * time.Second
@@ -308,7 +308,7 @@ func (s *Server) stats(req *http.Request) (interface{}, error) {
 			reconStatus = "Stale"
 		}
 		result.Peers = append(result.Peers, statsPeer{
-			Name:              k,
+			Name:              v.Name,
 			HTTPAddr:          v.HTTPAddr,
 			ReconAddr:         v.ReconAddr,
 			LastIncomingRecon: v.LastIncomingRecon,

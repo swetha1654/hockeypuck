@@ -134,6 +134,10 @@ func NewMemPeer() *Peer {
 	return NewPeer(settings, tree)
 }
 
+func (p *Peer) CurrentPartners() []*Partner {
+	return p.matcher.CurrentPartners()
+}
+
 func (p *Peer) log(label string) *log.Entry {
 	return p.logFields(label, log.Fields{})
 }
