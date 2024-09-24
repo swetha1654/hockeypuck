@@ -302,10 +302,12 @@ func (s *Server) stats(req *http.Request) (interface{}, error) {
 		reconStatus := "OK"
 		now := time.Now()
 		reconStaleLimit := time.Duration(s.settings.ReconStaleSecs) * time.Second
-		if v.LastIncomingError != nil || v.LastOutgoingError != nil {
-			reconStatus = "Error"
-		} else if v.LastIncomingRecon.Add(reconStaleLimit).Before(now) || v.LastOutgoingRecon.Add(reconStaleLimit).Before(now) {
-			reconStatus = "Stale"
+		if v.LastIncomingRecon.Add(reconStaleLimit).Before(now) && v.LastOutgoingRecon.Add(reconStaleLimit).Before(now) {
+			if v.ReconStarted.Add(reconStaleLimit).Before(now) {
+				reconStatus = "Stale"
+			} else {
+				reconStatus = "Starting"
+			}
 		}
 		result.Peers = append(result.Peers, statsPeer{
 			Name:              v.Name,

@@ -84,6 +84,7 @@ type Partner struct {
 	// IPs is the set of source IPs allowed for incoming recon
 	IPs []net.IP
 	// Log of successes and failures
+	ReconStarted      time.Time
 	LastIncomingRecon time.Time
 	LastIncomingError error
 	LastOutgoingRecon time.Time
@@ -122,6 +123,7 @@ func newIPMatcher() *ipMatcher {
 func (m *ipMatcher) allow(name string, partner Partner) error {
 	partner.updateIPs()
 	partner.Name = name
+	partner.ReconStarted = time.Now()
 	m.partners = append(m.partners, &partner)
 	return nil
 }

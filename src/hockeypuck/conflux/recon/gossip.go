@@ -78,9 +78,9 @@ func (p *Peer) Gossip() error {
 						recordReconFailure(partner.Addr, time.Since(start), CLIENT)
 					} else {
 						partner.LastOutgoingError = nil
+						partner.LastOutgoingRecon = start
 						recordReconSuccess(partner.Addr, time.Since(start), CLIENT)
 					}
-					partner.LastOutgoingRecon = start
 				}
 
 				p.readRelease()

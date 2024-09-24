@@ -367,9 +367,9 @@ func (p *Peer) Serve() error {
 				recordReconFailure(conn.RemoteAddr(), time.Since(start), SERVER)
 			} else {
 				partner.LastIncomingError = nil
+				partner.LastIncomingRecon = start
 				recordReconSuccess(conn.RemoteAddr(), time.Since(start), SERVER)
 			}
-			partner.LastIncomingRecon = start
 			return nil
 		})
 		p.muDie.Unlock()
