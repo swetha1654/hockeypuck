@@ -762,8 +762,6 @@ func (rwc *reconWithClient) flushQueue() error {
 	return nil
 }
 
-var zeroTime time.Time
-
 func (p *Peer) interactWithClient(conn net.Conn, remoteConfig *Config, partner *Partner, bitstring *cf.Bitstring) error {
 	p.logConn(SERVE, conn).Debug("interacting with client")
 	p.setReadDeadline(conn, defaultTimeout)
