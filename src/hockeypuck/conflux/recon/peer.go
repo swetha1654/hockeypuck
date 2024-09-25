@@ -347,6 +347,10 @@ func (p *Peer) Serve() error {
 				conn.Close()
 				continue
 			}
+		} else {
+			log.Warningf("unsupported connection from %q", conn.RemoteAddr())
+			conn.Close()
+			continue
 		}
 
 		p.muDie.Lock()
@@ -355,6 +359,7 @@ func (p *Peer) Serve() error {
 			return nil
 		}
 		p.t.Go(func() error {
+			defer conn.Close()
 			err = p.Accept(conn, partner)
 			start := time.Now()
 			recordReconInitiate(conn.RemoteAddr(), SERVER)
@@ -548,8 +553,6 @@ func (p *Peer) handleConfig(conn net.Conn, role string, failResp string) (_ *Con
 }
 
 func (p *Peer) Accept(conn net.Conn, partner *Partner) (_err error) {
-	defer conn.Close()
-
 	p.log(SERVE).Infof("accepted recon from [%s]", partner.String())
 	defer func() {
 		if _err != nil {
