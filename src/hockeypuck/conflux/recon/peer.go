@@ -330,13 +330,13 @@ func (p *Peer) Serve() error {
 		return ln.Close()
 	})
 
-	var partner *Partner
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
 			return errors.WithStack(err)
 		}
 
+		var partner *Partner
 		if tcConn, ok := conn.(*net.TCPConn); ok {
 			tcConn.SetKeepAlive(true)
 			tcConn.SetKeepAlivePeriod(3 * time.Minute)
