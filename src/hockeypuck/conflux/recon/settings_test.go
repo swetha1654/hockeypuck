@@ -272,7 +272,7 @@ func (s *SettingsSuite) TestMatcher(c *gc.C) {
 	for _, tc := range testCases {
 		ip := net.ParseIP(tc.addr)
 		c.Assert(err, gc.IsNil)
-		result := matcher.Match(ip)
+		result := (matcher.Match(ip) != nil)
 		c.Check(result, gc.Equals, tc.expect, gc.Commentf("addr=%q", tc.addr))
 	}
 }
@@ -295,7 +295,7 @@ func (s *SettingsSuite) TestMatchAll(c *gc.C) {
 	for _, tc := range testCases {
 		ip := net.ParseIP(tc.addr)
 		c.Assert(err, gc.IsNil)
-		result := matcher.Match(ip)
+		result := matcher.Match(ip).IPs[0].Equal(ip)
 		c.Check(result, gc.Equals, tc.expect, gc.Commentf("addr=%q", tc.addr))
 	}
 }
