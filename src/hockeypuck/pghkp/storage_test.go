@@ -69,7 +69,7 @@ func (s *S) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	s.storage = st.(*storage)
 
-	testAdminKeys := hkp.AdminKeys([]string{"0xAEE0851B4979BACC81DC05DB3ED546F6B54D5ED3"})
+	testAdminKeys := hkp.AdminKeys([]string{"0x5B74AE43F908323506BD2DFD31EDE6D1DF9E2BAF"})
 	r := httprouter.New()
 	handler, err := hkp.NewHandler(s.storage, testAdminKeys)
 	c.Assert(err, gc.IsNil)
@@ -356,6 +356,28 @@ func (s *S) TestMerge(c *gc.C) {
 	c.Assert(keys[0].UserIDs[0].Signatures, gc.HasLen, 2)
 }
 
+func (s *S) TestPolicyURI(c *gc.C) {
+	s.addKey(c, "gentoo-l2-infra.asc")
+
+	keyDocs := s.queryAllKeys(c)
+	c.Assert(keyDocs, gc.HasLen, 1)
+
+	res, err := http.Get(s.srv.URL + "/pks/lookup?op=get&search=openpgp-auth+l2-infra@gentoo.org")
+	c.Assert(err, gc.IsNil)
+	armor, err := io.ReadAll(res.Body)
+	res.Body.Close()
+	c.Assert(err, gc.IsNil)
+	c.Assert(res.StatusCode, gc.Equals, http.StatusOK)
+
+	keys := openpgp.MustReadArmorKeys(bytes.NewBuffer(armor))
+	c.Assert(keys, gc.HasLen, 1)
+	c.Assert(keys[0].ShortID(), gc.Equals, "e21f705a")
+	c.Assert(keys[0].UserIDs, gc.HasLen, 1)
+	// this shouldn't actually care WHICH signature the policy URI is at in the same way.
+	c.Assert(keys[0].UserIDs[0].Signatures[2].IssuerKeyID(), gc.Equals, "2839fe0d796198b1")
+	c.Assert(keys[0].UserIDs[0].Signatures[2].PolicyURI, gc.Equals, "https://www.gentoo.org/glep/glep-0079.html")
+}
+
 func (s *S) TestEd25519(c *gc.C) {
 	s.addKey(c, "e68e311d.asc")
 
@@ -471,7 +493,7 @@ func (s *S) TestReplaceWithAdminSig(c *gc.C) {
 
 	s.assertKey(c, "0xB3836BA47C8CFE0CEBD000CBF30F9BABFDD1F1EC", "somename", true)
 	s.assertKey(c, "0xB3836BA47C8CFE0CEBD000CBF30F9BABFDD1F1EC", "forgetme", true)
-	s.assertKey(c, "0xAEE0851B4979BACC81DC05DB3ED546F6B54D5ED3", "admin", true)
+	s.assertKey(c, "0x5B74AE43F908323506BD2DFD31EDE6D1DF9E2BAF", "admin", true)
 
 	keytext, err := io.ReadAll(testing.MustInput("replace.asc"))
 	c.Assert(err, gc.IsNil)
@@ -489,7 +511,7 @@ func (s *S) TestReplaceWithAdminSig(c *gc.C) {
 
 	s.assertKey(c, "0xB3836BA47C8CFE0CEBD000CBF30F9BABFDD1F1EC", "somename", true)
 	s.assertKey(c, "0xB3836BA47C8CFE0CEBD000CBF30F9BABFDD1F1EC", "forgetme", false)
-	s.assertKey(c, "0xAEE0851B4979BACC81DC05DB3ED546F6B54D5ED3", "admin", true)
+	s.assertKey(c, "0x5B74AE43F908323506BD2DFD31EDE6D1DF9E2BAF", "admin", true)
 }
 
 func (s *S) TestDeleteWithAdminSig(c *gc.C) {
@@ -502,7 +524,7 @@ func (s *S) TestDeleteWithAdminSig(c *gc.C) {
 
 	s.assertKey(c, "0xB3836BA47C8CFE0CEBD000CBF30F9BABFDD1F1EC", "somename", true)
 	s.assertKey(c, "0xB3836BA47C8CFE0CEBD000CBF30F9BABFDD1F1EC", "forgetme", true)
-	s.assertKey(c, "0xAEE0851B4979BACC81DC05DB3ED546F6B54D5ED3", "admin", true)
+	s.assertKey(c, "0x5B74AE43F908323506BD2DFD31EDE6D1DF9E2BAF", "admin", true)
 
 	keytext, err := io.ReadAll(testing.MustInput("delete.asc"))
 	c.Assert(err, gc.IsNil)
@@ -519,7 +541,7 @@ func (s *S) TestDeleteWithAdminSig(c *gc.C) {
 	defer res.Body.Close()
 
 	s.assertKeyNotFound(c, "0xB3836BA47C8CFE0CEBD000CBF30F9BABFDD1F1EC")
-	s.assertKey(c, "0xAEE0851B4979BACC81DC05DB3ED546F6B54D5ED3", "admin", true)
+	s.assertKey(c, "0x5B74AE43F908323506BD2DFD31EDE6D1DF9E2BAF", "admin", true)
 }
 
 func (s *S) TestAddBareRevocation(c *gc.C) {

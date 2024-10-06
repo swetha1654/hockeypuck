@@ -44,11 +44,6 @@ type reconConfig struct {
 	LevelDB levelDB `toml:"leveldb"`
 }
 
-const (
-	DefaultHKPBind           = ":11371"
-	DefaultLogRequestDetails = true
-)
-
 type HKPConfig struct {
 	Bind              string `toml:"bind"`
 	AdvBind           string `toml:"advertisedBind,omitempty"`
@@ -56,10 +51,6 @@ type HKPConfig struct {
 
 	Queries queryConfig `toml:"queries"`
 }
-
-const (
-	DefaultMaxResponseLen = 268435456
-)
 
 type queryConfig struct {
 	// Only respond with verified self-signed key material in queries
@@ -202,13 +193,18 @@ type Settings struct {
 	Version      string
 	BuiltAt      string
 
+	ReconStaleSecs int      `toml:"reconStaleSecs"`
 	MaxResponseLen int      `toml:"maxResponseLen"`
 	AdminKeys      []string `toml:"adminKeys"`
 }
 
 const (
-	DefaultLogLevel    = "INFO"
-	DefaultLevelDBPath = "recon.db"
+	DefaultLevelDBPath       = "recon.db"
+	DefaultHKPBind           = ":11371"
+	DefaultLogRequestDetails = true
+	DefaultLogLevel          = "INFO"
+	DefaultReconStaleSecs    = 86400
+	DefaultMaxResponseLen    = 268435456
 )
 
 var (
@@ -239,6 +235,7 @@ func DefaultSettings() Settings {
 		Software:       Software,
 		Version:        Version,
 		BuiltAt:        BuiltAt,
+		ReconStaleSecs: DefaultReconStaleSecs,
 		MaxResponseLen: DefaultMaxResponseLen,
 		AdminKeys:      []string{},
 	}

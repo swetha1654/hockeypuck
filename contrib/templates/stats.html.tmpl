@@ -10,6 +10,10 @@ table, th, td {
 }
 </style></head><body><h1>Hockeypuck OpenPGP Keyserver Statistics</h1>
 Taken at {{ .Now }}
+</br>
+</br>
+<div style="float:left;"><p class="muted credit small"><a href="/">Return to home</a></p></div>
+</br>
 <h2 id="settings">Settings</h2>
 <table>
 <tr><th>Hostname</th><td>{{ .Hostname }}</td></tr>
@@ -21,8 +25,8 @@ Taken at {{ .Now }}
 </table>
 
 <h3 id="gossip-peers">Gossip Peers</h3>
-<table><tr><th>Name</th><th>HTTP</th><th>Recon</th></tr>
-{{ range $peer := .Peers }}<tr><td>{{ $peer.Name }}</td><td><a href="http://{{ $peer.HTTPAddr }}/pks/lookup?op=stats">{{ $peer.HTTPAddr }}</a></td><td>{{ $peer.ReconAddr }}</td></tr>
+<table><tr><th>Name</th><th>HTTP</th><th>Recon</th><th>Recon Status</th><th>Recovery Status</th></tr>
+{{ range $peer := .Peers }}<tr><td>{{ $peer.Name }}</td><td><a href="http://{{ $peer.HTTPAddr }}/pks/lookup?op=stats">{{ $peer.HTTPAddr }}</a></td><td>{{ $peer.ReconAddr }}</td><td>{{ $peer.ReconStatus }}</td><td>{{ $peer.RecoveryStatus }}</td></tr>
 {{ end }}</table>
 
 <h2 id="statistics">Statistics</h2>

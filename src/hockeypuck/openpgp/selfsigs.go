@@ -22,7 +22,12 @@ import (
 	"time"
 )
 
+// We declare now as a variable so that we can override it in the unit tests
 var now = time.Now
+
+// zeroTime is the Go zero time (0001-01-01T00:00:00), not the Unix zero time
+// It will be rendered as a large negative number in e.g. machine readable output
+var zeroTime time.Time
 
 // CheckSig represents the result of checking a self-signature.
 type CheckSig struct {
@@ -47,7 +52,7 @@ type checkSigCreationAsc []*CheckSig
 func (s checkSigCreationAsc) Len() int { return len(s) }
 
 func (s checkSigCreationAsc) Less(i, j int) bool {
-	return s[i].Signature.Creation.Unix() < s[j].Signature.Creation.Unix()
+	return s[i].Signature.Creation.Before(s[j].Signature.Creation)
 }
 
 func (s checkSigCreationAsc) Swap(i, j int) {
@@ -59,7 +64,7 @@ type checkSigCreationDesc []*CheckSig
 func (s checkSigCreationDesc) Len() int { return len(s) }
 
 func (s checkSigCreationDesc) Less(i, j int) bool {
-	return s[j].Signature.Creation.Unix() < s[i].Signature.Creation.Unix()
+	return s[j].Signature.Creation.Before(s[i].Signature.Creation)
 }
 
 func (s checkSigCreationDesc) Swap(i, j int) {
@@ -71,7 +76,7 @@ type checkSigExpirationDesc []*CheckSig
 func (s checkSigExpirationDesc) Len() int { return len(s) }
 
 func (s checkSigExpirationDesc) Less(i, j int) bool {
-	return s[j].Signature.Expiration.Unix() < s[i].Signature.Expiration.Unix()
+	return s[j].Signature.Expiration.Before(s[i].Signature.Expiration)
 }
 
 func (s checkSigExpirationDesc) Swap(i, j int) {
@@ -85,8 +90,6 @@ func (s *SelfSigs) resolve() {
 	sort.Sort(checkSigCreationDesc(s.Primaries))
 }
 
-var zeroTime time.Time
-
 func (s *SelfSigs) RevokedSince() (time.Time, bool) {
 	if len(s.Revocations) > 0 {
 		return s.Revocations[0].Signature.Creation, true
@@ -94,6 +97,9 @@ func (s *SelfSigs) RevokedSince() (time.Time, bool) {
 	return zeroTime, false
 }
 
+// ExpiresAt() returns:
+// - the date at which the signature expires, or zeroTime if it does not expire
+// - whether it has a valid expiration
 func (s *SelfSigs) ExpiresAt() (time.Time, bool) {
 	if len(s.Certifications) > 0 {
 		expiration := s.Certifications[0].Signature.Expiration
@@ -112,31 +118,43 @@ func (s *SelfSigs) ExpiresAt() (time.Time, bool) {
 }
 
 func (s *SelfSigs) Valid() bool {
-	revoked := len(s.Revocations) > 0
-	expiration, okExpiration := s.ExpiresAt()
 	_, okValid := s.ValidSince()
-	return (!revoked && // target has no revocations
-		// target does not expire or hasn't expired yet
-		(!okExpiration || expiration.Unix() > now().Unix()) &&
-		// target has non-expired self-signatures
-		okValid)
+	return (okValid)
 }
 
+// ValidSince() returns:
+// - (if possible) the date that it first became valid, whether it is currently valid or not, and
+// - whether the target of the SelfSigs is *currently* valid
+//
+// BEWARE that a public key is only strictly valid if it has at least one self-signature,
+// i.e. either a direct sig, a UID certification or an sbind.
+// We cannot test UID certifications or sbinds here, so we rely on evaporation elsewhere
+// to take care of invalid structure.
+// ValidSince() will therefore return success when called on a bare primary key.
 func (s *SelfSigs) ValidSince() (time.Time, bool) {
+	isValid := true
+	expiration, expires := s.ExpiresAt()
+	if expires && expiration.Before(now()) {
+		isValid = false
+	}
 	if len(s.Revocations) > 0 {
-		return zeroTime, false
+		isValid = false
 	}
 	if pubkey, ok := s.target.(*PrimaryKey); ok {
-		return pubkey.Creation, true
+		return pubkey.Creation, isValid
+	}
+	createdAt := zeroTime
+	if len(s.Certifications) == 0 {
+		isValid = false
 	}
 	for _, checkSig := range s.Certifications {
-		// Return the first non-expired self-signature creation time.
-		expiresAt := checkSig.Signature.Expiration
-		if expiresAt.IsZero() || expiresAt.Unix() > now().Unix() {
-			return checkSig.Signature.Creation, true
+		// Find the earliest self-signature creation time.
+		sigCreated := checkSig.Signature.Creation
+		if createdAt.IsZero() || sigCreated.Before(createdAt) {
+			createdAt = sigCreated
 		}
 	}
-	return zeroTime, false
+	return createdAt, isValid
 }
 
 // The date of the most recent unexpired signature that marked this UID as primary, or zero.
@@ -146,7 +164,7 @@ func (s *SelfSigs) PrimarySince() (time.Time, bool) {
 	}
 	for _, checkSig := range s.Primaries {
 		expiresAt := checkSig.Signature.Expiration
-		if expiresAt.IsZero() || expiresAt.Unix() > now().Unix() {
+		if expiresAt.IsZero() || expiresAt.After(now()) {
 			return checkSig.Signature.Creation, true
 		}
 	}

@@ -25,7 +25,6 @@ import (
 	"bufio"
 	"fmt"
 	"net"
-	"strings"
 	"sync"
 	"time"
 
@@ -44,6 +43,7 @@ var ErrNodeNotFound error = fmt.Errorf("prefix-tree node not found")
 var ErrRemoteRejectedConfig error = fmt.Errorf("remote rejected configuration")
 
 type Recover struct {
+	Partner        *Partner
 	RemoteAddr     net.Addr
 	RemoteConfig   *Config
 	RemoteElements []cf.Zp
@@ -54,17 +54,22 @@ func (r *Recover) String() string {
 	return fmt.Sprintf("%v: %d elements", r.RemoteAddr, len(r.RemoteElements))
 }
 
-func (r *Recover) HkpAddr() (string, error) {
-	// Use remote HKP host:port as peer-unique identifier
-	host, _, err := net.SplitHostPort(r.RemoteAddr.String())
-	if err != nil {
-		log.Errorf("cannot parse HKP remote address from %q: %v", r.RemoteAddr, err)
-		return "", errors.WithStack(err)
+// RecoverAddr differs in general from both ReconAddr and HTTPAddr.
+// It uses the recon host and the HTTP port advertised by the remote recon config.
+func (r *Recover) RecoverAddr() (string, error) {
+	// Prefer the configured recon address.
+	host, _, err1 := net.SplitHostPort(r.Partner.ReconAddr)
+	if host == "" {
+		// Fall back to the connection IP (if localhost or allowCIDR).
+		var err2 error
+		host, _, err2 = net.SplitHostPort(r.RemoteAddr.String())
+		if err2 != nil {
+			log.Errorf("cannot parse remote address from %q: %v, or %q: %v", r.RemoteAddr, err2, r.Partner.ReconAddr, err1)
+			return "", errors.WithStack(err2)
+		}
 	}
-	if strings.Contains(host, ":") {
-		host = fmt.Sprintf("[%s]", host)
-	}
-	return fmt.Sprintf("%s:%d", host, r.RemoteConfig.HTTPPort), nil
+	// Append the advertised recovery port.
+	return net.JoinHostPort(host, fmt.Sprintf("%d", r.RemoteConfig.HTTPPort)), nil
 }
 
 type RecoverChan chan *Recover
@@ -80,6 +85,7 @@ var (
 type Peer struct {
 	settings *Settings
 	ptree    PrefixTree
+	matcher  IPMatcher
 
 	RecoverChan RecoverChan
 
@@ -109,6 +115,13 @@ func NewPeer(settings *Settings, tree PrefixTree) *Peer {
 	}
 	p.cond = sync.NewCond(&p.mu)
 
+	matcher, err := p.settings.Matcher()
+	if err != nil {
+		log.Errorf("cannot create matcher: %v", err)
+		return nil
+	}
+	p.matcher = matcher
+
 	registerMetrics()
 
 	return p
@@ -119,6 +132,10 @@ func NewMemPeer() *Peer {
 	tree := new(MemPrefixTree)
 	tree.Init()
 	return NewPeer(settings, tree)
+}
+
+func (p *Peer) CurrentPartners() []*Partner {
+	return p.matcher.CurrentPartners()
 }
 
 func (p *Peer) log(label string) *log.Entry {
@@ -303,11 +320,6 @@ func (p *Peer) Serve() error {
 	if err != nil {
 		return errors.WithStack(err)
 	}
-	matcher, err := p.settings.Matcher()
-	if err != nil {
-		log.Errorf("cannot create matcher: %v", err)
-		return errors.WithStack(err)
-	}
 
 	ln, err := net.Listen(addr.Network(), addr.String())
 	if err != nil {
@@ -324,16 +336,21 @@ func (p *Peer) Serve() error {
 			return errors.WithStack(err)
 		}
 
+		var partner *Partner
 		if tcConn, ok := conn.(*net.TCPConn); ok {
 			tcConn.SetKeepAlive(true)
 			tcConn.SetKeepAlivePeriod(3 * time.Minute)
 
 			remoteAddr := tcConn.RemoteAddr().(*net.TCPAddr)
-			if !matcher.Match(remoteAddr.IP) {
+			if partner = p.matcher.Match(remoteAddr.IP); partner == nil {
 				log.Warningf("connection rejected from %q", remoteAddr)
 				conn.Close()
 				continue
 			}
+		} else {
+			log.Warningf("unsupported connection from %q", conn.RemoteAddr())
+			conn.Close()
+			continue
 		}
 
 		p.muDie.Lock()
@@ -342,7 +359,8 @@ func (p *Peer) Serve() error {
 			return nil
 		}
 		p.t.Go(func() error {
-			err = p.Accept(conn)
+			defer conn.Close()
+			err = p.Accept(conn, partner)
 			start := time.Now()
 			recordReconInitiate(conn.RemoteAddr(), SERVER)
 			if errors.Is(err, ErrPeerBusy) {
@@ -350,8 +368,11 @@ func (p *Peer) Serve() error {
 				recordReconBusyPeer(conn.RemoteAddr(), SERVER)
 			} else if err != nil {
 				p.logErr(SERVE, err).Errorf("recon with %v failed", conn.RemoteAddr())
+				partner.LastIncomingError = err
 				recordReconFailure(conn.RemoteAddr(), time.Since(start), SERVER)
 			} else {
+				partner.LastIncomingError = nil
+				partner.LastIncomingRecon = start
 				recordReconSuccess(conn.RemoteAddr(), time.Since(start), SERVER)
 			}
 			return nil
@@ -531,10 +552,8 @@ func (p *Peer) handleConfig(conn net.Conn, role string, failResp string) (_ *Con
 	return remoteConfig, nil
 }
 
-func (p *Peer) Accept(conn net.Conn) (_err error) {
-	defer conn.Close()
-
-	p.logConn(SERVE, conn).Info("accepted connection")
+func (p *Peer) Accept(conn net.Conn, partner *Partner) (_err error) {
+	p.log(SERVE).Infof("accepted recon from [%s]", partner.String())
 	defer func() {
 		if _err != nil {
 			p.logConnErr(SERVE, conn, _err).Error()
@@ -554,7 +573,7 @@ func (p *Peer) Accept(conn net.Conn) (_err error) {
 	}
 
 	if failResp == "" {
-		return p.interactWithClient(conn, remoteConfig, cf.NewBitstring(0))
+		return p.interactWithClient(conn, remoteConfig, partner, cf.NewBitstring(0))
 	}
 	return nil
 }
@@ -684,7 +703,7 @@ func (rwc *reconWithClient) sendRequest(p *Peer, req *requestEntry) error {
 	return nil
 }
 
-func (rwc *reconWithClient) handleReply(p *Peer, msg ReconMsg, req *requestEntry) error {
+func (rwc *reconWithClient) handleReply(msg ReconMsg, req *requestEntry) error {
 	rwc.Peer.logConnFields(SERVE, rwc.conn, log.Fields{"msg": msg}).Debug("handleReply")
 	switch m := msg.(type) {
 	case *SyncFail:
@@ -743,9 +762,7 @@ func (rwc *reconWithClient) flushQueue() error {
 	return nil
 }
 
-var zeroTime time.Time
-
-func (p *Peer) interactWithClient(conn net.Conn, remoteConfig *Config, bitstring *cf.Bitstring) error {
+func (p *Peer) interactWithClient(conn net.Conn, remoteConfig *Config, partner *Partner, bitstring *cf.Bitstring) error {
 	p.logConn(SERVE, conn).Debug("interacting with client")
 	p.setReadDeadline(conn, defaultTimeout)
 
@@ -761,7 +778,7 @@ func (p *Peer) interactWithClient(conn net.Conn, remoteConfig *Config, bitstring
 	}
 
 	defer func() {
-		p.sendItems(recon.rcvrSet.Items(), conn, remoteConfig, SERVE)
+		p.sendItems(recon.rcvrSet.Items(), conn, remoteConfig, partner, SERVE)
 	}()
 	defer func() {
 		WriteMsg(recon.bwr, &Done{})
@@ -802,7 +819,7 @@ func (p *Peer) interactWithClient(conn net.Conn, remoteConfig *Config, bitstring
 
 			if hasMsg {
 				recon.popBottom()
-				err = recon.handleReply(p, msg, bottom.requestEntry)
+				err = recon.handleReply(msg, bottom.requestEntry)
 				if err != nil {
 					return errors.WithStack(err)
 				}
@@ -821,7 +838,7 @@ func (p *Peer) interactWithClient(conn net.Conn, remoteConfig *Config, bitstring
 						return errors.WithStack(err)
 					}
 					p.logConnFields(SERVE, conn, log.Fields{"msg": msg}).Debug("reply")
-					err = recon.handleReply(p, msg, bottom.requestEntry)
+					err = recon.handleReply(msg, bottom.requestEntry)
 					if err != nil {
 						return errors.WithStack(err)
 					}
@@ -841,11 +858,12 @@ func (p *Peer) interactWithClient(conn net.Conn, remoteConfig *Config, bitstring
 	return nil
 }
 
-func (p *Peer) sendItems(items []cf.Zp, conn net.Conn, remoteConfig *Config, context string) error {
+func (p *Peer) sendItems(items []cf.Zp, conn net.Conn, remoteConfig *Config, partner *Partner, context string) error {
 	if len(items) > 0 && p.t.Alive() {
 		done := make(chan struct{})
 		select {
 		case p.RecoverChan <- &Recover{
+			Partner:        partner,
 			RemoteAddr:     conn.RemoteAddr(),
 			RemoteConfig:   remoteConfig,
 			RemoteElements: items,

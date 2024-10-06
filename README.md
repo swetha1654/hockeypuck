@@ -15,13 +15,23 @@ The current release branch is 2.2
 A quick and easy way to run Hockeypuck locally is with `docker-compose`.
 First, obtain a keydump from an existing server.
 A partial list of dump sources can be found in `contrib/data-sources.md`.
-Unpack the `*.gpg` files from the dump under `contrib/docker-compose/devel/keydump/`, then:
+Unpack the `*.pgp` files from the dump under `contrib/docker-compose/devel/keydump/`, then:
 
     cd contrib/docker-compose/devel
     docker-compose up -d
 
 You can change the configuration by editing `contrib/docker-compose/devel/etc/hockeypuck.conf` and running `docker-compose restart`.
 To stop, run `docker-compose down`.
+
+## Building docker on Windows
+
+BEWARE that if you are building a docker image on Windows, you MUST clone this repository with `autocrlf` disabled:
+
+```
+git clone --config core.autocrlf=false https://github.com/hockeypuck/hockeypuck
+```
+
+See https://stackoverflow.com/questions/53165471/building-docker-images-on-windows-entrypoint-script-no-such-file-or-directory
 
 # Production deployment with docker-compose (RECOMMENDED for most users)
 
