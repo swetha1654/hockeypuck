@@ -29,14 +29,17 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"gopkg.in/tomb.v2"
+
 	_ "github.com/lib/pq"
 	"github.com/pkg/errors"
 	"golang.org/x/exp/slices"
 
-	log "github.com/sirupsen/logrus"
 	"hockeypuck/hkp/jsonhkp"
 	hkpstorage "hockeypuck/hkp/storage"
 	"hockeypuck/openpgp"
+
+	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -50,6 +53,8 @@ type storage struct {
 
 	mu        sync.Mutex
 	listeners []func(hkpstorage.KeyChange) error
+
+	t tomb.Tomb
 }
 
 var _ hkpstorage.Storage = (*storage)(nil)
@@ -661,6 +666,39 @@ func (st *storage) FetchKeyrings(rfps []string, options ...string) ([]*hkpstorag
 		}
 		kr.PrimaryKey = key
 		result = append(result, &kr)
+	}
+	err = rows.Err()
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	return result, nil
+}
+
+func (st *storage) fetchKeydocs(rfps []string) ([]*keyDoc, error) {
+	var rfpIn []string
+	for _, rfp := range rfps {
+		_, err := hex.DecodeString(rfp)
+		if err != nil {
+			return nil, errors.Wrapf(err, "invalid rfingerprint %q", rfp)
+		}
+		rfpIn = append(rfpIn, "'"+strings.ToLower(rfp)+"'")
+	}
+	sqlStr := fmt.Sprintf("SELECT rfingerprint, doc, md5, ctime, mtime, keywords FROM keys WHERE rfingerprint IN (%s)", strings.Join(rfpIn, ","))
+	rows, err := st.Query(sqlStr)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	var result []*keyDoc
+	defer rows.Close()
+	for rows.Next() {
+		var kd keyDoc
+		err = rows.Scan(&kd.RFingerprint, &kd.Doc, &kd.MD5, &kd.CTime, &kd.MTime, &kd.Keywords)
+		if err != nil && err != sql.ErrNoRows {
+			return nil, errors.WithStack(err)
+		}
+		result = append(result, &kd)
 	}
 	err = rows.Err()
 	if err != nil {
@@ -1475,4 +1513,71 @@ func (st *storage) BulkNotify(sqlStr string) error {
 
 func (st *storage) RenotifyAll() error {
 	return st.BulkNotify("SELECT md5 FROM keys")
+}
+
+func (st *storage) reindexBunch(bookmark time.Time) (time.Time, error) {
+	// Processes a bunch of keys, normalises the table schema, and writes them back out to the DB.
+	// It does not update CTime, MTime, MD5 or Doc, and does not call Notify.
+
+	newBookmark := bookmark
+	keyDocs := make([]*keyDoc, 0, 100)
+	for {
+		rfps, err := st.ModifiedSince(newBookmark)
+		if err != nil {
+			return bookmark, err
+		}
+		docs, err := st.fetchKeydocs(rfps)
+		if err != nil {
+			return bookmark, err
+		}
+		for _, doc := range docs {
+			changed := false
+			// Unmarshal the doc
+			var pk openpgp.PrimaryKey
+			err = json.Unmarshal([]byte(doc.Doc), &pk)
+			if err != nil {
+				return bookmark, errors.WithStack(err)
+			}
+
+			// TODO:
+			// Populate Fingerprint, KeyID if empty (issue #285)
+			// Regenerate keywords
+
+			if !changed {
+				break
+			}
+			keyDocs = append(keyDocs, doc)
+			newBookmark = doc.MTime
+		}
+		// We can afford to exceed keysInBunch because reindexing needs fewer parameters
+		if len(keyDocs) > keysInBunch {
+			break
+		}
+	}
+	// TODO: Bulk update using keyDocs
+
+	return newBookmark, nil
+}
+
+func (st *storage) reindex() error {
+	// A goroutine that reindexes the keydb in-place, oldest items first.
+	bookmark := time.Time{}
+	for {
+		select {
+		case <-st.t.Dying():
+			return nil
+		default:
+		}
+
+		var err error
+		bookmark, err = st.reindexBunch(bookmark)
+		if err != nil {
+			return err
+		}
+	}
+}
+
+// Start reindexing. This should only be done after server startup, not during load or dump.
+func (st *storage) StartReindex() {
+	st.t.Go(st.reindex)
 }
