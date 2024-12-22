@@ -370,11 +370,31 @@ func (pubkey *PrimaryKey) PrimaryUserIDSig() (*Signature, error) {
 	return primarySig, nil
 }
 
+// updateMD5 also refreshes the primary key's Length field
+// (https://github.com/hockeypuck/hockeypuck/issues/282)
+// Note that packet lengths do not include framing
 func (pubkey *PrimaryKey) updateMD5() error {
 	digest, err := SksDigest(pubkey, md5.New())
 	if err != nil {
 		return errors.WithStack(err)
 	}
 	pubkey.MD5 = digest
+	length := len(pubkey.Packet.Packet)
+	for _, sig := range pubkey.Signatures {
+		length += len(sig.Packet.Packet)
+	}
+	for _, uid := range pubkey.UserIDs {
+		length += len(uid.Packet.Packet)
+		for _, sig := range uid.Signatures {
+			length += len(sig.Packet.Packet)
+		}
+	}
+	for _, subkey := range pubkey.SubKeys {
+		length += len(subkey.Packet.Packet)
+		for _, sig := range subkey.Signatures {
+			length += len(sig.Packet.Packet)
+		}
+	}
+	pubkey.Length = length
 	return nil
 }
