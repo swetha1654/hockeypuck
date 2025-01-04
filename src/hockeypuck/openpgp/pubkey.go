@@ -52,24 +52,26 @@ type PublicKey struct {
 	Signatures []*Signature
 }
 
-func AlgorithmName(code int) string {
+func AlgorithmName(code int, len int) string {
 	switch code {
 	case 1:
-		return "rsa"
+		return fmt.Sprintf("rsa%d", len)
 	case 2:
-		return "rsaE"
+		return fmt.Sprintf("rsaE%d", len)
 	case 3:
-		return "rsaS"
+		return fmt.Sprintf("rsaS%d", len)
+	case 8:
+		return "kyberL"
 	case 16:
-		return "elgE"
+		return fmt.Sprintf("elgE%d", len)
 	case 17:
-		return "dsa"
+		return fmt.Sprintf("dsa%d", len)
 	case 18:
 		return "ecdh"
 	case 19:
 		return "ecdsa"
 	case 20:
-		return "elg!"
+		return fmt.Sprintf("elg!%d", len)
 	case 21:
 		return "dh?"
 	case 22:
@@ -78,13 +80,21 @@ func AlgorithmName(code int) string {
 		return "aedh?"
 	case 24:
 		return "aedsa?"
+	case 25:
+		return "x25519"
+	case 26:
+		return "x448"
+	case 27:
+		return "ed25519"
+	case 28:
+		return "ed448"
 	default:
 		return fmt.Sprintf("unk(#%d)", code)
 	}
 }
 
 func (pk *PublicKey) QualifiedFingerprint() string {
-	return fmt.Sprintf("(%d)%s%d/%s", pk.Version, AlgorithmName(pk.Algorithm), pk.BitLen, Reverse(pk.RFingerprint))
+	return fmt.Sprintf("(%d)%s/%s", pk.Version, AlgorithmName(pk.Algorithm, pk.BitLen), Reverse(pk.RFingerprint))
 }
 
 func (pk *PublicKey) ShortID() string {
