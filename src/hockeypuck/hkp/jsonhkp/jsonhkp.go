@@ -68,7 +68,7 @@ func newPublicKey(from *openpgp.PublicKey) *PublicKey {
 		ShortKeyID:  from.ShortID(),
 		Version:     from.Version,
 		Algorithm: algorithm{
-			Name: openpgp.AlgorithmName(from.Algorithm),
+			Name: openpgp.AlgorithmName(from.Algorithm, from.BitLen),
 			Code: from.Algorithm,
 		},
 		BitLength: from.BitLen,
