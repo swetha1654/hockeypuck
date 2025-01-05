@@ -202,7 +202,14 @@ func (s *HandlerSuite) TestIndexAlice(c *gc.C) {
 		c.Assert(err, gc.IsNil)
 
 		c.Assert(result, gc.HasLen, 1)
-		c.Assert(fmt.Sprintf("%v", result[0]["bitLength"]), gc.Equals, "2048")
+		algorithm := result[0]["algorithm"]
+		switch a := algorithm.(type) {
+		case map[string]interface{}:
+			c.Assert(fmt.Sprintf("%v", a["bitLength"]), gc.Equals, "2048")
+		default:
+			c.Logf("algorithm of unexpected type: %#v", a)
+			c.Fail()
+		}
 	}
 
 	c.Assert(s.storage.MethodCount("MatchMD5"), gc.Equals, 0)

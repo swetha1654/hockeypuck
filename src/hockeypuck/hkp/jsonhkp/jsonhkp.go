@@ -43,8 +43,10 @@ func NewPacket(from *openpgp.Packet) *Packet {
 }
 
 type algorithm struct {
-	Name string `json:"name"`
-	Code int    `json:"code"`
+	Name      string `json:"name"`
+	Code      int    `json:"code"`
+	BitLength int    `json:"bitLength"`
+	Curve     string `json:"curve"`
 }
 
 type PublicKey struct {
@@ -56,7 +58,7 @@ type PublicKey struct {
 	NeverExpires bool         `json:"neverExpires,omitempty"`
 	Version      uint8        `json:"version"`
 	Algorithm    algorithm    `json:"algorithm"`
-	BitLength    int          `json:"bitLength"`
+	BitLength    string       `json:"bitLength"` // compat with old templates, always contains ""
 	Signatures   []*Signature `json:"signatures,omitempty"`
 	Packet       *Packet      `json:"packet,omitempty"`
 }
@@ -68,10 +70,14 @@ func newPublicKey(from *openpgp.PublicKey) *PublicKey {
 		ShortKeyID:  from.ShortID(),
 		Version:     from.Version,
 		Algorithm: algorithm{
-			Name: openpgp.AlgorithmName(from.Algorithm),
-			Code: from.Algorithm,
+			Name:      openpgp.AlgorithmName(from.Algorithm, from.BitLen, from.Curve),
+			Code:      from.Algorithm,
+			BitLength: from.BitLen,
+			Curve:     from.Curve,
 		},
-		BitLength: from.BitLen,
+		// The proper value of BitLength is in the Algorithm subsection above.
+		// This field only exists so that old template files don't nil deref.
+		BitLength: "",
 		Packet:    NewPacket(&from.Packet),
 	}
 
