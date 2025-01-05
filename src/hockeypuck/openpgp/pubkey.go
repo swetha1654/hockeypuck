@@ -49,10 +49,13 @@ type PublicKey struct {
 	// BitLen stores the bit length of the public key.
 	BitLen int
 
+	// Curve stores the ECC curve of the public key.
+	Curve string
+
 	Signatures []*Signature
 }
 
-func AlgorithmName(code int, len int) string {
+func AlgorithmName(code int, len int, curve string) string {
 	switch code {
 	case 1:
 		return fmt.Sprintf("rsa%d", len)
@@ -61,21 +64,21 @@ func AlgorithmName(code int, len int) string {
 	case 3:
 		return fmt.Sprintf("rsaS%d", len)
 	case 8:
-		return "kyberL"
+		return "kyber?"
 	case 16:
 		return fmt.Sprintf("elgE%d", len)
 	case 17:
 		return fmt.Sprintf("dsa%d", len)
 	case 18:
-		return "ecdh"
+		return fmt.Sprintf("ecdh_%s", curve)
 	case 19:
-		return "ecdsa"
+		return fmt.Sprintf("ecdsa_%s", curve)
 	case 20:
 		return fmt.Sprintf("elg!%d", len)
 	case 21:
 		return "dh?"
 	case 22:
-		return "eddsa"
+		return fmt.Sprintf("eddsa_%s", curve)
 	case 23:
 		return "aedh?"
 	case 24:
@@ -94,7 +97,7 @@ func AlgorithmName(code int, len int) string {
 }
 
 func (pk *PublicKey) QualifiedFingerprint() string {
-	return fmt.Sprintf("(%d)%s/%s", pk.Version, AlgorithmName(pk.Algorithm, pk.BitLen), Reverse(pk.RFingerprint))
+	return fmt.Sprintf("(%d)%s/%s", pk.Version, AlgorithmName(pk.Algorithm, pk.BitLen, pk.Curve), Reverse(pk.RFingerprint))
 }
 
 func (pk *PublicKey) ShortID() string {
@@ -179,6 +182,10 @@ func (pkp *PublicKey) setPublicKey(pk *packet.PublicKey) error {
 	bitLen, err := pk.BitLength()
 	if err != nil {
 		return errors.WithStack(err)
+	}
+	curve, err := pk.Curve()
+	if err == nil {
+		pkp.Curve = string(curve)
 	}
 	pkp.RFingerprint = Reverse(fingerprint)
 	pkp.UUID = pkp.RFingerprint
